@@ -1,0 +1,83 @@
+import mongoose from "mongoose";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
+var userSchema = new mongoose.Schema(
+  {
+    firstName: {
+      type: String,
+      required: true,
+    },
+    lastName: {
+      type: String,
+      required: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    phone: {
+      type: String,
+      required: false,
+    },
+    address: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Address",
+    },
+    wishlist: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Wishlist",
+    },
+    cart: {
+      type: Array,
+      default: [],
+    },
+    role: {
+      type: String,
+      default: "user",
+      required: true,
+    },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+      required: true,
+    },
+    password: {
+      type: String,
+      required: true,
+    },
+    refreshToken: {
+      type: String,
+    },
+    passwordChangeAt: {
+      type: String,
+    },
+    passwordResetToken: {
+      type: String,
+    },
+    passwordResetExpires: {
+      type: String,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+  this.password = await bcrypt.hash(this.password, 10);
+  next();
+});
+userSchema.methods = {
+  comparePassword: async function (enterPassword) {
+    return await bcrypt.compare(enterPassword, this.password);
+  },
+  createPasswordChangedToken:  function  (){
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    this.passwordResetToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+    this.passwordResetExpires= Date.now() + 15 * 60 * 1000; // 1 minutes
+    return resetToken;
+  }
+};
+//Export the model
+export default mongoose.model("User", userSchema);
