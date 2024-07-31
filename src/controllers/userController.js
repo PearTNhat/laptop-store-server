@@ -3,7 +3,10 @@ import User from "~/models/User";
 import { generateAccessToken, generateRefreshToken } from "~/middleware/jwt";
 import { verify } from "jsonwebtoken";
 import sendMail from "~/utils/sendMail";
+import { cloudinary, uploadUserCloud } from "~/configs/cloudinary";
 
+const excludeFields =
+  "-password -refreshToken -role -passwordChangeAt -passwordResetToken -passwordResetExpires";
 const register = async (req, res, next) => {
   try {
     const { email, firstName, lastName, password } = req.body;
@@ -152,6 +155,26 @@ const getCurrentUser = async (req, res, next) => {
     next(error);
   }
 };
+const uploadAvatar = async (req, res, next) => {
+  try {
+    const user = await User.findById({ _id: req.user._id });
+    const upload = uploadUserCloud.single("image");
+    if (!user) throw new Error("User not found");
+    if (user.avatar?.public_id !== "public_id") {
+      await cloudinary.uploader.destroy(user.avatar.public_id);
+    }
+    upload(req, res, async (err) => {
+      if (err) throw new Error(err);
+      if (!req.file) throw new Error("Missing image");
+      user.avatar.public_id = req.file.filename;
+      user.avatar.url = req.file.path;
+      await user.save();
+    });
+    res.status(200).json({ success: true, data: user });
+  } catch (error) {
+    next(error);
+  }
+};
 const getAllUser = async (req, res, next) => {
   try {
     const users = await User.find().select(
@@ -164,42 +187,125 @@ const getAllUser = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
-}
+};
 const updateUser = async (req, res, next) => {
-  try{
-    const {firstName,lastName,phone}=req.body;
-    if( !req.user?._id || Object.keys(req.body).length===0 ) throw new Error("Missing inputs");
-    const user = await User.findByIdAndUpdate(req.user._id,{firstName,lastName,phone},{new:true}).select( "-password -refreshToken -role -passwordChangeAt -passwordResetToken -passwordResetExpires");
-    if(!user) throw new Error("User not found");
+  try {
+    const { firstName, lastName, phone } = req.body;
+    if (!req.user?._id || Object.keys(req.body).length === 0)
+      throw new Error("Missing inputs");
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { firstName, lastName, phone },
+      { new: true }
+    ).select(
+      "-password -refreshToken -role -passwordChangeAt -passwordResetToken -passwordResetExpires"
+    );
+    if (!user) throw new Error("User not found");
     res.status(200).json({
-      success:true,
-      data:user
-    })
-  }catch(error){
-    next(error)
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    next(error);
   }
-}
+};
 const updatePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) throw new Error("Missing inputs");
-    if (currentPassword === newPassword) throw new Error("New password must be different from the current password");
+    if (currentPassword === newPassword)
+      throw new Error(
+        "New password must be different from the current password"
+      );
     const user = await User.findById(req.user._id);
-    if(await user.comparePassword(currentPassword)){
+    if (await user.comparePassword(currentPassword)) {
       user.password = newPassword;
       user.passwordChangeAt = Date.now();
       await user.save();
       res.status(200).json({
-        success:true,
-        message:"Update password successfully"
-      })
-    }else{
+        success: true,
+        message: "Update password successfully",
+      });
+    } else {
       throw new Error("Current password is not correct");
     }
   } catch (error) {
     next(error);
   }
-}
+};
+const addAddress = async (req, res, next) => {
+  try {
+    const { address } = req.body;
+    if (!address) throw new Error("Missing address");
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $push: {
+          addresses: {
+            address,
+          },
+        },
+      },
+      { new: true }
+    ).select(excludeFields);
+    res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+const updateCart = async (req, res, next) => {
+  try {
+    const { product, quantity, color } = req.body;
+    if (!product || !quantity || !color) throw new Error("Missing inputs");
+    const user = await User.findById({_id:req.user._id}).select("carts");
+    if (!user) throw new Error("User not found");
+    const alreadyHaveProductColor = user.carts?.find(
+      (item) => item.product.toString() === product && item.color === color
+    );
+    let carts
+    // nếu tồn tại Product color thì update quantity 
+    // nếu không thì thêm mới
+    if (alreadyHaveProductColor) {
+      carts = await User.findOneAndUpdate(
+        {
+          _id: req.user._id,
+          carts: {
+            $elemMatch: {
+              product: product,
+              color: color,
+            },
+          },
+        },
+        {
+          $set: {
+            "carts.$.quantity": quantity,
+          },
+        },
+        { new: true }
+      ).select("carts");
+    } else {
+      carts = await User.findByIdAndUpdate(
+        req.user._id,
+        {
+          $push: {
+            carts: {
+              product,
+              quantity,
+              color,
+            },
+          },
+        },
+        { new: true }
+      ).select("carts");
+    }
+    res.status(200).json({success: true, data: carts});
+  } catch (error) {
+    next(error);
+  }
+};
 export {
   register,
   loginUser,
@@ -209,5 +315,8 @@ export {
   getCurrentUser,
   updateUser,
   updatePassword,
-  getAllUser
+  getAllUser,
+  uploadAvatar,
+  addAddress,
+  updateCart
 };

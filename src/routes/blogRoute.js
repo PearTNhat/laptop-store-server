@@ -1,5 +1,5 @@
 import express from "express";
-import { createBlog, deleteBlog, disklikeBlog, getAllBlogs, getBlog, likeBlog, updateBlog } from "~/controllers/blogController";
+import { createBlog, deleteBlog, dislikeBlog, getAllBlogs, getBlog, likeBlog, updateBlog, uploadImageBlog } from "~/controllers/blogController";
 
 
 import { isAdmin, verifyAccessToken } from "~/middleware/verifyToken";
@@ -12,8 +12,10 @@ Router.route("/:bid")
   .get(getBlog)
   .put([verifyAccessToken, isAdmin], updateBlog)
   .delete([verifyAccessToken, isAdmin],deleteBlog);
+Router.route("/upload-image/:bid")
+  .put([verifyAccessToken, isAdmin], uploadImageBlog)
 Router.route("/like/:bid")
   .put([verifyAccessToken], likeBlog);
 Router.route("/dislike/:bid")
-  .put([verifyAccessToken], disklikeBlog);
-export const blogCategoryRoute = Router;
+  .put([verifyAccessToken], dislikeBlog);
+export const blogRoute = Router;

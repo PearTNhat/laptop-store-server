@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import { type } from "os";
 var userSchema = new mongoose.Schema(
   {
     firstName: {
@@ -11,6 +12,16 @@ var userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    avatar: {
+      url:{ 
+        type: String,
+        default:"https://res.cloudinary.com/dijvnphep/image/upload/v1722310317/DigitalStore/Users/xwzectymp2ml2tatiia6.png"
+      },
+      public_id: {
+        type: String,
+        default:"public_id",
+      },
+    },
     email: {
       type: String,
       required: true,
@@ -20,18 +31,28 @@ var userSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
-    address: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Address",
-    },
+    addresses:[
+      {
+        address:{
+          type:String,
+        },
+        isDefault:{
+          type:Boolean,
+          default:false,
+        }
+      }
+    ],
     wishlist: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Wishlist",
     },
-    cart: {
-      type: Array,
-      default: [],
-    },
+    carts:[
+      {
+        product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+        quantity: Number,
+        color: String,
+      }
+    ],
     role: {
       type: String,
       default: "user",

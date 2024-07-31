@@ -37,9 +37,16 @@ var productSchema = new mongoose.Schema({
         type:Number,
         default:0,
     },
-    images:{
-        type:Array,
-    },
+    images:[
+        {
+            url:{
+                type:String,
+            },
+            public_id:{
+                type:String,
+            },
+        }
+    ],
     color:{
         type:String,
         enum:['Black','White','Red','Green','Blue'], // Chỉ tồn tại những màu trong này

@@ -1,4 +1,5 @@
 import slugify from "slugify";
+import { uploadProductCloud } from "~/configs/cloudinary";
 import Product from "~/models/Product";
 const createProduct = async (req, res, next) => {
   try {
@@ -71,12 +72,17 @@ const getAllProducts = async (req, res, next) => {
     const page = +req.query.page || 1;
     const limit = +req.query.limit || 10;
     const skip = (page - 1) * limit;
-    queryComamnd = queryComamnd.skip(skip).limit(limit).populate([{
-        path:"ratings",
-        math:{
-            parent:null
-        }
-    }])
+    queryComamnd = queryComamnd
+      .skip(skip)
+      .limit(limit)
+      .populate([
+        {
+          path: "ratings",
+          math: {
+            parent: null,
+          },
+        },
+      ]);
     const [totalDocuments, products] = await Promise.all([
       Product.find(formatQuery).countDocuments(),
       queryComamnd.skip(skip).limit(limit),
@@ -91,4 +97,38 @@ const getAllProducts = async (req, res, next) => {
     next(error);
   }
 };
-export { createProduct, getProduct, getAllProducts };
+const uploadImagesProduct = async (req, res, next) => {
+  try {
+    const { pid } = req.params;
+    if (!pid) throw new Error("Missing product id");
+    let product = await Product.findById(pid);
+    if (!product) throw new Error("Product not found");
+    const upload = uploadProductCloud.array("images", 10);
+    await new Promise((resolve, reject) => {
+      // Hàm này là up ảnh lên cloundinary
+      upload(req, res, async (err) => {
+        if (err) reject(err);
+        if (!req.files) reject("Missing images");
+        resolve();
+      });
+    });
+    product = await Product.findByIdAndUpdate(
+      pid,
+      {
+        $push: {
+          images: {
+            $each: req.files.map((file) => ({
+              url: file.path,
+              public_id: file.filename,
+            })),
+          },
+        },
+      },
+      { new: true }
+    );
+    res.status(200).json({ success: true, data: product });
+  } catch (error) {
+    next(error);
+  }
+};
+export { createProduct, getProduct, getAllProducts,uploadImagesProduct };
