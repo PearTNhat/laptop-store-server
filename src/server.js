@@ -1,10 +1,17 @@
 import express from 'express'
 const app = express()
 import "dotenv/config";
+import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { connectDB } from './configs/mongodb';
 import initRoutes from './routes';
+const corsOptions = {
+  origin: [process.env.CLIENT_URL],
+  credentials: true,
+  optionSuccessStatus: 200,
+}
 
+app.use(cors(corsOptions));
 connectDB();
 app.use(cookieParser());
 app.use(express.json());
