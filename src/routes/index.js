@@ -7,6 +7,7 @@ import { blogCategoryRoute } from "./blogCategoryRoute"
 import { brandRoute } from "./brandRoute"
 import { blogRoute } from "./blogRoute"
 import { couponRoute } from "./couponRoute"
+import { dailyDealsRoute } from "./dailyDealsRoute"
 const initRoutes = (app) => {
     app.use('/api/user', userRoute)
     app.use('/api/product', productRoute)
@@ -16,6 +17,7 @@ const initRoutes = (app) => {
     app.use('/api/blog-category', blogCategoryRoute)
     app.use('/api/brand', brandRoute)
     app.use('/api/coupon', couponRoute)
+    app.use('/api/daily-deals', dailyDealsRoute)
     app.use(invalidPathHandler)
     app.use(errorResponseHandler)
 }

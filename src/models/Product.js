@@ -23,24 +23,16 @@ var productSchema = new mongoose.Schema({
     },
     price: {
         type: Number,
-        required: true,
     },
     discountPrice: {
         type: Number,
         min: 0,
         validate: {
             validator: function (value) {
+                if (!this.price ) return true
                 return value <= this.price;
             },
             message: 'Discount price should be less than or equal to the original price.'
-        }
-    },
-    discountPercentage: {
-        type: Number,
-        min: 0,
-        max: 100, // Discount is a percentage
-        default: function () {
-            return ((this.price - this.discountPrice) / this.price) * 100;
         }
     },
     category: {
@@ -63,8 +55,7 @@ var productSchema = new mongoose.Schema({
         public_id: {
             type: String,
         },
-    }
-    ,
+    },
     colors: [
         {
             color: {
@@ -86,7 +77,7 @@ var productSchema = new mongoose.Schema({
                     type: String,
                 },
             },
-            cappacity:{type: Array},
+            attrs:Object,
             images: [
                 {
                     url: {
