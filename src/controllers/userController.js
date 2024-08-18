@@ -7,6 +7,33 @@ import { cloudinary, uploadUserCloud } from "~/configs/cloudinary";
 
 const excludeFields =
   "-password -refreshToken -role -passwordChangeAt -passwordResetToken -passwordResetExpires";
+// const register = async (req, res, next) => {
+//   try {
+//     const { email, firstName, lastName, password } = req.body;
+//     if (!email || !firstName || !lastName || !password) {
+//       throw new Error("Missing inputs");
+//     }
+//     let user = await User.findOne({ email });
+//     if (user) {
+//       throw new Error("Email already exists");
+//     }
+//     user = new User({ email, firstName, lastName, password });
+//     await user.save();
+//     const accessToken = generateAccessToken({ _id: user._id, role: user.role });
+//     user = user.toObject();
+//     delete user.password;
+//     delete user.role;
+//     res.status(201).json({
+//       success: true,
+//       data: {
+//         ...user,
+//         accessToken,
+//       },
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
 const register = async (req, res, next) => {
   try {
     const { email, firstName, lastName, password } = req.body;
@@ -17,19 +44,52 @@ const register = async (req, res, next) => {
     if (user) {
       throw new Error("Email already exists");
     }
-    user = new User({ email, firstName, lastName, password });
-    await user.save();
-    const accessToken = generateAccessToken({ _id: user._id, role: user.role });
-    user = user.toObject();
-    delete user.password;
-    delete user.role;
-    res.status(201).json({
-      success: true,
-      data: {
-        ...user,
-        accessToken,
-      },
+    const token = crypto.randomBytes(32).toString("hex");
+    const registerData = {
+      email,
+      firstName,
+      lastName,
+      password,
+      token,
+    };
+    res.cookie("registerData", registerData, {
+      httpOnly: true,
+      maxAge: 15 * 1000, // 5 minutes
     });
+    // ở đây cần dùng url BE để nó gửi chạy trực tiếp tới BE luôn
+    const html = `
+    <h1> Verify your account </h1>
+      <p>
+        Click the link to verify your account
+        <a href=${`${process.env.BASE_URL_BACKEND}/api/user/final-register/${token}`}>Verify your account</a>
+      </p>
+      <p>The link expires in 5 minutes</p>
+    `;
+    const subject = "[Digital Store] Please verify your account";
+
+    await sendMail({ to: email, html, subject });
+    res
+      .status(201)
+      .json({
+        success: true,
+        message: "Please check your email to verify your account",
+      });
+  } catch (error) {
+    next(error);
+  }
+};
+const finalRegister = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const userRegister = req.cookies.registerData;
+    if (!userRegister || userRegister?.token !== token) {
+      res.clearCookie("registerData");
+      return res.redirect(`${process.env.BASE_URL_FRONTEND}/final-register/failed`);
+    }
+    const { email, firstName, lastName, password } = userRegister;
+    await User.create({ email, firstName, lastName, password });
+    res.clearCookie("registerData");
+    return res.redirect(`${process.env.BASE_URL_FRONTEND}/final-register/success`);
   } catch (error) {
     next(error);
   }
@@ -54,10 +114,9 @@ const loginUser = async (req, res, next) => {
       const { password, role, refreshToken, ...userData } = user.toObject();
       return res.status(200).json({
         message: "Login successfully",
-        data: {
-          data: userData,
-          accessToken,
-        },
+        success: true,
+        userData,
+        accessToken,
       });
     } else {
       const error = new Error("Email or password are not exist");
@@ -98,14 +157,15 @@ const forgotPassword = async (req, res, next) => {
     const resetToken = user.createPasswordChangedToken();
     await user.save();
     const html = `
-    <h1>Reset your password </h1>
-      <p>
-        Click the link to reset your password
-        <a href=${`${process.env.BASE_URL_FRONTEND}/api/user/reset-password/${resetToken}`}>Reset Password</a>
-      </p>
-      <p>The password reset link expires in 2 minutes</p>
-    `;
-    await sendMail({ to: email, html });
+        <h1><Reset your password ></h1>
+          <p>
+            Click the link to reset your password
+            <a href=${`${process.env.BASE_URL_FRONTEND}/api/user/final-register/${resetToken}`}>Reset Password</a>
+          </p>
+          <p>The password reset link expires in 2 minutes</p>
+        `;
+    const subject = "[Digital Store] Reset your password";
+    const mailRes = await sendMail({ to: email, html, subject });
     res.status(200).json({
       success: true,
       message: "Send email successfully",
@@ -260,13 +320,13 @@ const updateCart = async (req, res, next) => {
   try {
     const { product, quantity, color } = req.body;
     if (!product || !quantity || !color) throw new Error("Missing inputs");
-    const user = await User.findById({_id:req.user._id}).select("carts");
+    const user = await User.findById({ _id: req.user._id }).select("carts");
     if (!user) throw new Error("User not found");
     const alreadyHaveProductColor = user.carts?.find(
       (item) => item.product.toString() === product && item.color === color
     );
-    let carts
-    // nếu tồn tại Product color thì update quantity 
+    let carts;
+    // nếu tồn tại Product color thì update quantity
     // nếu không thì thêm mới
     if (alreadyHaveProductColor) {
       carts = await User.findOneAndUpdate(
@@ -301,13 +361,14 @@ const updateCart = async (req, res, next) => {
         { new: true }
       ).select("carts");
     }
-    res.status(200).json({success: true, data: carts});
+    res.status(200).json({ success: true, data: carts });
   } catch (error) {
     next(error);
   }
 };
 export {
   register,
+  finalRegister,
   loginUser,
   refreshTokenUser,
   forgotPassword,
@@ -318,5 +379,5 @@ export {
   getAllUser,
   uploadAvatar,
   addAddress,
-  updateCart
+  updateCart,
 };

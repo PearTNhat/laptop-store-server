@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 import "dotenv/config";
-const sendMail = async ({to, html}) => {
+const sendMail = async ({to, html,subject}) => {
   const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 587,
@@ -17,7 +17,7 @@ const sendMail = async ({to, html}) => {
     return await transporter.sendMail({
       from: "Digital Store <no-reply@gmail.com>", // sender address
       to, // list of receivers
-      subject: "[Digital Store] Please reset your password", // Subject line
+      subject, // Subject line
       text: "Click on the link to reset password", // plain text body
       html: `<!DOCTYPE html>
       <html lang="en">

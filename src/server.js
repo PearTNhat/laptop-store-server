@@ -6,7 +6,7 @@ import cookieParser from 'cookie-parser';
 import { connectDB } from './configs/mongodb';
 import initRoutes from './routes';
 const corsOptions = {
-  origin: [process.env.CLIENT_URL],
+  origin: [process.env.BASE_URL_FRONTEND],
   credentials: true,
   optionSuccessStatus: 200,
 }
