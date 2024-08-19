@@ -26,3 +26,7 @@ export const handleUpdateTotalProductRating = async ({productId, type, rating })
   productRes.totalRating = totalRating;
   await productRes.save();
 };
+export const generateOTP = ()=>{
+  // 100000 - 999999
+  return Math.floor(100000 + Math.random() * 900000);
+}

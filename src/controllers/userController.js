@@ -4,9 +4,11 @@ import { generateAccessToken, generateRefreshToken } from "~/middleware/jwt";
 import { verify } from "jsonwebtoken";
 import sendMail from "~/utils/sendMail";
 import { cloudinary, uploadUserCloud } from "~/configs/cloudinary";
+import { generateOTP } from "~/utils/helper";
 
 const excludeFields =
   "-password -refreshToken -role -passwordChangeAt -passwordResetToken -passwordResetExpires";
+  // đăng kí k cần xác thực
 // const register = async (req, res, next) => {
 //   try {
 //     const { email, firstName, lastName, password } = req.body;
@@ -34,6 +36,70 @@ const excludeFields =
 //     next(error);
 //   }
 // };
+
+// dung cookie de luu trang thai dang ki
+// const register = async (req, res, next) => {
+//   try {
+//     const { email, firstName, lastName, password } = req.body;
+//     if (!email || !firstName || !lastName || !password) {
+//       throw new Error("Missing inputs");
+//     }
+//     let user = await User.findOne({ email });
+//     if (user) {
+//       throw new Error("Email already exists");
+//     }
+//     const token = crypto.randomBytes(32).toString("hex");
+//     const registerData = {
+//       email,
+//       firstName,
+//       lastName,
+//       password,
+//       token,
+//     };
+//     res.cookie("registerData", registerData, {
+//       httpOnly: true,
+//       maxAge: 5*60 * 1000, // 5 minutes
+//     });
+//     // ở đây cần dùng url BE để nó gửi chạy trực tiếp tới BE luôn
+//     const html = `
+//     <h1> Verify your account </h1>
+//       <p>
+//         Click the link to verify your account
+//         <a href=${`${process.env.BASE_URL_BACKEND}/api/user/final-register/${token}`}>Verify your account</a>
+//       </p>
+//       <p>The link expires in 5 minutes</p>
+//     `;
+//     const subject = "[Digital Store] Please verify your account";
+
+//     await sendMail({ to: email, html, subject });
+//     res
+//       .status(201)
+//       .json({
+//         success: true,
+//         message: "Please check your email to verify your account",
+//       });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+// const finalRegister = async (req, res, next) => {
+//   try {
+//     const { token } = req.params;
+//     const userRegister = req.cookies.registerData;
+//     if (!userRegister || userRegister?.token !== token) {
+//       res.clearCookie("registerData");
+//       return res.redirect(`${process.env.BASE_URL_FRONTEND}/final-register/failed`);
+//     }
+//     const { email, firstName, lastName, password } = userRegister;
+//     await User.create({ email, firstName, lastName, password });
+//     res.clearCookie("registerData");
+//     return res.redirect(`${process.env.BASE_URL_FRONTEND}/final-register/success`);
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
+// dùng otp để xác thực
 const register = async (req, res, next) => {
   try {
     const { email, firstName, lastName, password } = req.body;
@@ -44,35 +110,26 @@ const register = async (req, res, next) => {
     if (user) {
       throw new Error("Email already exists");
     }
-    const token = crypto.randomBytes(32).toString("hex");
-    const registerData = {
-      email,
-      firstName,
-      lastName,
-      password,
-      token,
-    };
-    res.cookie("registerData", registerData, {
-      httpOnly: true,
-      maxAge: 5*60 * 1000, // 5 minutes
-    });
+   const OTP = generateOTP();
+   const emailEdited =email+'&'+OTP
+    user = await User.create({ email:emailEdited ,firstName, lastName, password });
     // ở đây cần dùng url BE để nó gửi chạy trực tiếp tới BE luôn
     const html = `
     <h1> Verify your account </h1>
       <p>
-        Click the link to verify your account
-        <a href=${`${process.env.BASE_URL_BACKEND}/api/user/final-register/${token}`}>Verify your account</a>
+        <h1> Your OTP </h1>
+        <strong>${OTP}</strong>
       </p>
-      <p>The link expires in 5 minutes</p>
+      <p>The OTP expires in 5 minutes</p>
     `;
-    const subject = "[Digital Store] Please verify your account";
+    const subject = "[Digital Store] OTP to verify your account";
 
     await sendMail({ to: email, html, subject });
     res
       .status(201)
       .json({
         success: true,
-        message: "Please check your email to verify your account",
+        message: "OTP has been sent to your email",
       });
   } catch (error) {
     next(error);
@@ -80,16 +137,17 @@ const register = async (req, res, next) => {
 };
 const finalRegister = async (req, res, next) => {
   try {
-    const { token } = req.params;
-    const userRegister = req.cookies.registerData;
-    if (!userRegister || userRegister?.token !== token) {
-      res.clearCookie("registerData");
-      return res.redirect(`${process.env.BASE_URL_FRONTEND}/final-register/failed`);
+    const { OTP,email } = req.body;
+    const user = await User.findOne({ email: email+'&'+OTP });
+    if (!user) {
+      throw new Error("OTP is not correct");
     }
-    const { email, firstName, lastName, password } = userRegister;
-    await User.create({ email, firstName, lastName, password });
-    res.clearCookie("registerData");
-    return res.redirect(`${process.env.BASE_URL_FRONTEND}/final-register/success`);
+    user = emailNoVerify.email.split('&')[0]
+    await user.save();
+    return res.status(200).json({
+      success: true,
+      message: "Register successfully",
+    });
   } catch (error) {
     next(error);
   }

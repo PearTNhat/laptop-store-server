@@ -1,6 +1,6 @@
 import Comment from "~/models/Comment";
 import Product from "~/models/Product";
-import { handleUpdateTotalProductRating } from "~/utils/handleTotalProductRating";
+import { handleUpdateTotalProductRating } from "~/utils/helper";
 
 const createComment = async (req, res, next) => {
   try {
