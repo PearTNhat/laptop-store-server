@@ -54,7 +54,7 @@ const register = async (req, res, next) => {
     };
     res.cookie("registerData", registerData, {
       httpOnly: true,
-      maxAge: 15 * 1000, // 5 minutes
+      maxAge: 5*60 * 1000, // 5 minutes
     });
     // ở đây cần dùng url BE để nó gửi chạy trực tiếp tới BE luôn
     const html = `
@@ -160,12 +160,12 @@ const forgotPassword = async (req, res, next) => {
         <h1><Reset your password ></h1>
           <p>
             Click the link to reset your password
-            <a href=${`${process.env.BASE_URL_FRONTEND}/api/user/final-register/${resetToken}`}>Reset Password</a>
+            <a href=${`${process.env.BASE_URL_FRONTEND}/reset-password/${resetToken}`}>Reset Password</a>
           </p>
           <p>The password reset link expires in 2 minutes</p>
         `;
     const subject = "[Digital Store] Reset your password";
-    const mailRes = await sendMail({ to: email, html, subject });
+    await sendMail({ to: email, html, subject });
     res.status(200).json({
       success: true,
       message: "Send email successfully",
@@ -178,12 +178,12 @@ const resetPassword = async (req, res, next) => {
   try {
     const { resetToken } = req.params;
     const { newPassword } = req.body;
+    console.log(newPassword)
     if (!resetToken) throw new Error("Missing reset token");
     const passwordResetToken = crypto
       .createHash("sha256")
       .update(resetToken)
       .digest("hex");
-
     const user = await User.findOne({
       passwordResetToken,
       passwordResetExpires: { $gte: Date.now() },
@@ -193,7 +193,7 @@ const resetPassword = async (req, res, next) => {
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
     user.passwordChangeAt = Date.now();
-    user.save();
+    await user.save();
     res.status(200).json({
       success: true,
       message: "Reset password successfully",
