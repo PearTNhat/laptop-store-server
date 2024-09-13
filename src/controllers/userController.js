@@ -106,14 +106,21 @@ const register = async (req, res, next) => {
     if (!email || !firstName || !lastName || !password) {
       throw new Error("Missing inputs");
     }
-    let user = await User.findOne({ email });
+    let [user,isUserExist] = await Promise.all([await User.findOne({ email }), await User.findOne({'email':{ $regex: `${email}&.*` }})]); 
     if (user) {
       throw new Error("Email already exists");
     }
    const OTP = generateOTP();
    const emailEdited =email+'&'+OTP
-    user = await User.create({ email:emailEdited ,firstName, lastName, password });
-    // ở đây cần dùng url BE để nó gửi chạy trực tiếp tới BE luôn
+   if(isUserExist){
+    await User.findOneAndUpdate({'email':{ $regex: `${email}&.*` }},{ email:emailEdited ,firstName, lastName, password });
+   }else{
+    await User.create({ email:emailEdited ,firstName, lastName, password });
+   }
+   // xoa user sau 45s không đăng ký
+    setTimeout(async () => {
+      await User.findOneAndDelete({ email: emailEdited });
+    }, 5*60 * 1000);
     const html = `
     <h1> Verify your account </h1>
       <p>
@@ -138,11 +145,12 @@ const register = async (req, res, next) => {
 const finalRegister = async (req, res, next) => {
   try {
     const { OTP,email } = req.body;
+    console.log(email,OTP)
     const user = await User.findOne({ email: email+'&'+OTP });
     if (!user) {
       throw new Error("OTP is not correct");
     }
-    user = emailNoVerify.email.split('&')[0]
+    user.email = user.email.split('&')[0]
     await user.save();
     return res.status(200).json({
       success: true,

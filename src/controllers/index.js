@@ -52,3 +52,17 @@ export const insertProduct = async (req, res,next) => {
         next(error);
     }
 }
+export const updateDescription = async (req, res,next) => {
+    try {
+        await Product.updateMany({title: {"$regex":"iPhone.*"}}, {description: `- Genuine, 100% New, Original Seal
+- Screen: OLED Super Retina XDR
+- Rear camera: 48MP, 12MP
+- Front camera: 12MP
+- CPU: Apple A17 Pro
+- Memory: 256GB
+- Operating system: iOS`});
+return res.status(200).json({message: "Update description successfully"});
+    } catch (error) {
+        next(error);
+    }
+}

@@ -26,7 +26,11 @@ const createProduct = async (req, res, next) => {
 const getProduct = async (req, res, next) => {
   try {
     const { pid } = req.params;
-    const product = await Product.findById(pid);
+    const product = (await Product.findById(pid)).populated([
+      {
+        path:"category"
+      }
+    ]);
     res.status(200).json({
       success: true,
       data: product,
@@ -54,25 +58,25 @@ const getAllProducts = async (req, res, next) => {
       formatQuery.title = { $regex: req.query.title, $options: "i" };
     }
 
-    let queryComamnd = Product.find(formatQuery);
+    let queryCommand = Product.find(formatQuery);
 
     // select fields
     if (req.query.fields) {
       const fields = req.query.fields.split(",").join(" ");
-      queryComamnd = queryComamnd.select(fields);
+      queryCommand = queryCommand.select(fields);
     } else {
-      queryComamnd = queryComamnd.select("-__v");
+      queryCommand = queryCommand.select("-__v");
     }
     // sort
     if (req.query.sort) {
       const sortBy = req.query.sort.split(",").join(" ");
-      queryComamnd = queryComamnd.sort(sortBy);
+      queryCommand = queryCommand.sort(sortBy);
     }
     // dấu cộng để conver str to number
     const page = +req.query.page || 1;
     const limit = +req.query.limit || 10;
     const skip = (page - 1) * limit;
-    queryComamnd = queryComamnd
+    queryCommand = queryCommand
       .skip(skip)
       .limit(limit)
       .populate([
@@ -82,10 +86,13 @@ const getAllProducts = async (req, res, next) => {
             parent: null,
           },
         },
+        {
+          path: "category",
+        }
       ]);
     const [totalDocuments, products] = await Promise.all([
       Product.find(formatQuery).countDocuments(),
-      queryComamnd.skip(skip).limit(limit),
+      queryCommand.skip(skip).limit(limit),
     ]);
 
     res.status(200).json({

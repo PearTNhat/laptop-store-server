@@ -18,7 +18,8 @@ import { isAdmin, verifyAccessToken } from "~/middleware/verifyToken";
 const Router = express.Router();
 
 Router.post("/register", register);
-Router.get("/final-register/:token", finalRegister);
+// Router.get("/final-register/:token", finalRegister);
+Router.post("/final-register", finalRegister);
 Router.post("/login", loginUser);
 Router.post("/refresh-token", refreshTokenUser);
 Router.get("/forgot-password", forgotPassword);
