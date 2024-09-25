@@ -18,6 +18,16 @@ const createProductCategory = async (req, res, next) => {
         next(error);
     }
 }
+const getProductCategory = async (req, res, next) => {
+    try {
+        const {pcid} = req.params;
+        // tạm thời đẻ là slug
+        const productCategory = await ProductCategory.findOne({slug: pcid});
+        res.status(200).json({success: true, data: productCategory});
+    } catch (error) {
+        next(error);
+    }
+}
 const updateProductCategory = async (req, res, next) => {
     try {
         const {pcid} = req.params;
@@ -40,4 +50,4 @@ const deleteProductCategory = async (req, res, next) => {
         next(error);
     }
 }
-export {createProductCategory, getAllProductCategories, updateProductCategory, deleteProductCategory};
+export {createProductCategory, getAllProductCategories,getProductCategory, updateProductCategory, deleteProductCategory};

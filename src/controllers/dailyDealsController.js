@@ -34,7 +34,7 @@ const getDailyDeals = async (req, res,next) => {
             ]
         }}).populate('product');
         if(!dailyDeals){
-            console.log('random');
+    
             const randomDeals = await DailyDeals.aggregate([{ $sample: { size: 1 } }]);
             dailyDeals =await DailyDeals.populate(randomDeals[0], { path: 'product' });
         }

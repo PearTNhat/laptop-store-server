@@ -25,10 +25,17 @@ const createProduct = async (req, res, next) => {
 };
 const getProduct = async (req, res, next) => {
   try {
-    const { pid } = req.params;
-    const product = (await Product.findById(pid)).populated([
+    const { slug } = req.params;
+    const product = await Product.findOne({slug}).populate([
       {
-        path:"category"
+        path: "comments",
+        math: {
+          parent: null,
+        },
+      },
+      {
+        path:"category",
+        foreignField:'slug'
       }
     ]);
     res.status(200).json({
@@ -50,14 +57,17 @@ const getAllProducts = async (req, res, next) => {
     // price[gte]=123 & price[lte]=123 => {price: {gte: 123, lte: 123}}
     let queryStr = JSON.stringify(queryObj);
     //{price: {gte: 1000}, rating: {gt: 4.5}} => {price: {$gte: 1000}, rating: {$gt: 4.5}}
-    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
+    queryStr = queryStr.replace(/\b(gte|gt|lte|lt|ne)\b/g, (match) => `$${match}`);
     let formatQuery = JSON.parse(queryStr);
-
+    // filter color
+    if (req.query.colors) {
+      const colors = formatQuery.colors.split(',').map((color) => new RegExp(color, "i"));
+      formatQuery.colors = {$elemMatch:{color: {$in: colors}} };
+    }
     // filter title
     if (req.query.title) {
       formatQuery.title = { $regex: req.query.title, $options: "i" };
     }
-
     let queryCommand = Product.find(formatQuery);
 
     // select fields
@@ -79,17 +89,10 @@ const getAllProducts = async (req, res, next) => {
     queryCommand = queryCommand
       .skip(skip)
       .limit(limit)
-      .populate([
-        {
-          path: "ratings",
-          math: {
-            parent: null,
-          },
-        },
-        {
-          path: "category",
-        }
-      ]);
+      .populate([{
+        path: "category",
+        foreignField:'slug'
+      }])
     const [totalDocuments, products] = await Promise.all([
       Product.find(formatQuery).countDocuments(),
       queryCommand.skip(skip).limit(limit),

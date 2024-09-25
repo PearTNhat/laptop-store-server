@@ -14,7 +14,7 @@ var productSchema = new mongoose.Schema({
         lowercase: true,
     },
     description: {
-        type: String,
+        type: Array,
         // required: true,
     },
     brand: {
@@ -36,7 +36,7 @@ var productSchema = new mongoose.Schema({
         }
     },
     category: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: String,
         ref: 'ProductCategory',
     },
     quantity: {
@@ -99,7 +99,7 @@ var productSchema = new mongoose.Schema({
     toJSON: { virtuals: true },
 });
 // nó sẻ lấy những comment có product == _id của product đang hiển thị
-productSchema.virtual('ratings', {
+productSchema.virtual('comments', {
     ref: 'Comment',
     localField: '_id',
     foreignField: 'product',

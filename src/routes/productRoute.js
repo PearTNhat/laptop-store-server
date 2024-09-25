@@ -8,7 +8,7 @@ const Router = express.Router();
 Router.route("/")
     .post([verifyAccessToken,isAdmin],createProduct)
     .get(getAllProducts);
-Router.route("/:pid").get(getProduct);
-Router.route("/upload-image/:pid").put([verifyAccessToken,isAdmin],uploadImagesProduct);
+Router.route("/:slug").get(getProduct);
+Router.route("/upload-image/:slug").put([verifyAccessToken,isAdmin],uploadImagesProduct);
 Router.route("/insert/p").get(insertProduct);
 export const productRoute = Router;

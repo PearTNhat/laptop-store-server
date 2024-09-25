@@ -123,7 +123,6 @@ const uploadImageBlog = async (req, res, next) => {
       if(!req.file) throw new Error("Missing image");
       blog.image.public_id = req.file.filename;
       blog.image.url = req.file.path;
-      console.log(req.file);
       await blog.save();
     })
     res.status(200).json({success:true,data:blog});

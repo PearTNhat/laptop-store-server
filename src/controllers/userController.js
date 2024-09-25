@@ -145,7 +145,6 @@ const register = async (req, res, next) => {
 const finalRegister = async (req, res, next) => {
   try {
     const { OTP,email } = req.body;
-    console.log(email,OTP)
     const user = await User.findOne({ email: email+'&'+OTP });
     if (!user) {
       throw new Error("OTP is not correct");
@@ -244,7 +243,6 @@ const resetPassword = async (req, res, next) => {
   try {
     const { resetToken } = req.params;
     const { newPassword } = req.body;
-    console.log(newPassword)
     if (!resetToken) throw new Error("Missing reset token");
     const passwordResetToken = crypto
       .createHash("sha256")
