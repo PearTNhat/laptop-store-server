@@ -29,9 +29,22 @@ const getProduct = async (req, res, next) => {
     const product = await Product.findOne({slug}).populate([
       {
         path: "comments",
-        math: {
-          parent: null,
+        match: {
+          parentId: null,
         },
+        populate:[{
+          path: "user",
+          select: "firstName lastName avatar createdAt",
+        },{
+          path: "replies",
+          populate:[{
+            path: "user",
+            select: "firstName lastName avatar createdAt",
+          },{
+            path: "replyOnUser",
+            select: "firstName lastName"
+          }]
+        }]
       },
       {
         path:"category",

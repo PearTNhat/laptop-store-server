@@ -4,12 +4,10 @@ import { handleUpdateTotalProductRating } from "~/utils/helper";
 
 const createComment = async (req, res, next) => {
   try {
+    //product : pId
     const { rating, product, parentId } = req.body;
     if (!product) {
       throw new Error("Missing input");
-    }
-    if (rating < 0 || rating > 5) {
-      throw new Error("Rating must be between 0 and 5");
     }
     if (rating && parentId) {
       throw new Error(
@@ -18,6 +16,9 @@ const createComment = async (req, res, next) => {
     }
     // Kiểm tra xem đã dánh giá hay chưa
     if (rating) {
+      if (rating < 0 || rating > 5) {
+        throw new Error("Rating must be between 0 and 5");
+      }
       const isRated = await Comment.findOne({
         product,
         user: req.user._id,
@@ -34,14 +35,15 @@ const createComment = async (req, res, next) => {
       });
     }
     let rs
-    if (rating || parentId) {
+    //comment có rating hoặc parentId mới cho tạo
+    if (rating ||parentId) {
       rs = await Comment.create({ ...req.body, user: req.user._id });
     } else {
       throw new Error("Comment must have rating or parentId");
     }
     res.status(201).json({
       success: true,
-    data:rs
+      data:rs
     });
   } catch (error) {
     next(error);
@@ -62,7 +64,7 @@ const updateComment = async (req, res, next) => {
         );
       }
     let newRating;
-    if (req.body.rating  ) {
+    if (req.body.rating ) {
       newRating = req.body.rating;
       if (newRating < 0 || newRating > 5) {
         throw new Error("Rating must be between 0 and 5");
@@ -117,4 +119,24 @@ const deleteComment = async (req, res, next) => {
     next(error);
   }
 };
-export { createComment, updateComment, deleteComment };
+const likeComment = async (req, res, next) => {
+  try {
+    const comment = await Comment.findById(req.params.id);
+    if (!comment) {
+      throw new Error("Comment not found");
+    }
+    if(comment.likes.includes(req.user._id)){
+      comment.likes = comment.likes.filter((el)=>el.toString() !== req.user._id.toString())
+    }else{
+      comment.likes.push(req.user._id)
+    }
+    await comment.save()
+    res.status(200).json({
+      success: true,
+      message: "Comment liked successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+export { createComment, updateComment, deleteComment,likeComment };

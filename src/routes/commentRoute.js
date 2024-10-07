@@ -1,7 +1,7 @@
 import express from "express";
-import { createComment, deleteComment, updateComment } from "~/controllers/commentController";
+import { createComment, deleteComment, likeComment, updateComment } from "~/controllers/commentController";
 
-import { isAdmin, verifyAccessToken } from "~/middleware/verifyToken";
+import {  verifyAccessToken } from "~/middleware/verifyToken";
 const Router = express.Router();
 
 
@@ -10,5 +10,6 @@ Router.route("/:id")
     .put(verifyAccessToken,updateComment)
     .delete(verifyAccessToken,deleteComment)
 ;
+Router.route("/like/:id").put(verifyAccessToken,likeComment);
 
 export const commentRoute = Router;

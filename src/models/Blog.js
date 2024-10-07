@@ -26,12 +26,6 @@ var blogSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
-    dislikes: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
     image: 
       {
         url: {
