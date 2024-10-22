@@ -7,7 +7,7 @@ import { cloudinary, uploadUserCloud } from "~/configs/cloudinary";
 import { generateOTP } from "~/utils/helper";
 
 const excludeFields =
-  "-password -refreshToken -role -passwordChangeAt -passwordResetToken -passwordResetExpires";
+  "-password -refreshToken -passwordChangeAt -passwordResetToken -passwordResetExpires";
   // đăng kí k cần xác thực
 // const register = async (req, res, next) => {
 //   try {
@@ -170,13 +170,13 @@ const loginUser = async (req, res, next) => {
       await User.findByIdAndUpdate(user._id, { refreshToken: newRefreshToken });
       res.cookie("refreshToken", newRefreshToken, {
         httpOnly: true,
-        maxAge: 7 * 60 * 60 * 1000, // 7 hours
+        maxAge: 7*60*60* 1000, // 7 d
       });
       const accessToken = generateAccessToken({
         _id: user._id,
         role: user.role,
       });
-      const { password, role, refreshToken, ...userData } = user.toObject();
+      const { password, refreshToken, ...userData } = user.toObject();
       return res.status(200).json({
         message: "Login successfully",
         success: true,
@@ -269,7 +269,7 @@ const resetPassword = async (req, res, next) => {
 const getCurrentUser = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id).select(
-      "-password -refreshToken -role -passwordChangeAt -passwordResetToken -passwordResetExpires"
+      excludeFields
     );
     res.status(200).json({
       success: true,
