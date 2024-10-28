@@ -1,5 +1,5 @@
 import slugify from "slugify";
-import { cloudinary, uploadBlogCloud } from "~/configs/cloudinary";
+import { cloudinary } from "~/configs/cloudinary";
 import Blog from "~/models/Blog";
 const selectInfoUser = "firstName lastName";
 const getAllBlogs = async (req, res, next) => {
@@ -118,13 +118,13 @@ const uploadImageBlog = async (req, res, next) => {
     if(blog.image?.public_id !== "public_id"){
       await cloudinary.uploader.destroy(blog.image.public_id);
     }
-    upload(req,res,async (err)=>{
-      if(err) throw new Error(err);
-      if(!req.file) throw new Error("Missing image");
-      blog.image.public_id = req.file.filename;
-      blog.image.url = req.file.path;
-      await blog.save();
-    })
+    // upload(req,res,async (err)=>{
+    //   if(err) throw new Error(err);
+    //   if(!req.file) throw new Error("Missing image");
+    //   blog.image.public_id = req.file.filename;
+    //   blog.image.url = req.file.path;
+    //   await blog.save();
+    // })
     res.status(200).json({success:true,data:blog});
   } catch (error) {
     next(error);

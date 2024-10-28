@@ -3,7 +3,7 @@ import User from "~/models/User";
 import { generateAccessToken, generateRefreshToken } from "~/middleware/jwt";
 import { verify } from "jsonwebtoken";
 import sendMail from "~/utils/sendMail";
-import { cloudinary, uploadUserCloud } from "~/configs/cloudinary";
+import { cloudinary, uploadToCloudinary, uploadUserCloud, USER_FOLDER } from "~/configs/cloudinary";
 import { generateOTP } from "~/utils/helper";
 
 const excludeFields =
@@ -163,7 +163,10 @@ const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) throw new Error("Missing inputs");
-    let user = await User.findOne({ email });
+    let user = await User.findOne({ email }).populate({
+      path: 'carts.product',
+      select: 'title price discountPrice colors',
+    });
     if (!user) throw new Error("Email or password are not exist");
     if (await user.comparePassword(password)) {
       const newRefreshToken = generateRefreshToken(user._id);
@@ -270,7 +273,10 @@ const getCurrentUser = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id).select(
       excludeFields
-    );
+    ).populate({
+      path: 'carts.product',
+      select: 'title price discountPrice colors',
+    });
     res.status(200).json({
       success: true,
       data: user,
@@ -279,52 +285,113 @@ const getCurrentUser = async (req, res, next) => {
     next(error);
   }
 };
-const uploadAvatar = async (req, res, next) => {
+const getAllUsers = async (req, res, next) => {
   try {
-    const user = await User.findById({ _id: req.user._id });
-    const upload = uploadUserCloud.single("image");
-    if (!user) throw new Error("User not found");
-    if (user.avatar?.public_id !== "public_id") {
-      await cloudinary.uploader.destroy(user.avatar.public_id);
-    }
-    upload(req, res, async (err) => {
-      if (err) throw new Error(err);
-      if (!req.file) throw new Error("Missing image");
-      user.avatar.public_id = req.file.filename;
-      user.avatar.url = req.file.path;
-      await user.save();
-    });
-    res.status(200).json({ success: true, data: user });
-  } catch (error) {
-    next(error);
-  }
-};
-const getAllUser = async (req, res, next) => {
-  try {
-    const users = await User.find().select(
-      "-password -refreshToken -role -passwordChangeAt -passwordResetToken -passwordResetExpires"
-    );
-    res.status(200).json({
+     //1A filter
+     const queryObj = { ...req.query };
+     const excludeFields = ["page", "sort", "limit", "fields"];
+     excludeFields.forEach((el) => delete queryObj[el]);
+ 
+     //1B Advanced filtering
+     // price[gte]=123 & price[lte]=123 => {price: {gte: 123, lte: 123}}
+     let queryStr = JSON.stringify(queryObj);
+     //{price: {gte: 1000}, rating: {gt: 4.5}} => {price: {$gte: 1000}, rating: {$gt: 4.5}}
+     queryStr = queryStr.replace(/\b(gte|gt|lte|lt|ne)\b/g, (match) => `$${match}`);
+     let formatQuery = JSON.parse(queryStr);
+
+     // filter title
+     if (req.query.search) {
+      const searchRegex = new RegExp(req.query.search, 'i');
+      delete formatQuery.search
+       formatQuery['$or'] = [
+        { firstName: { $regex: searchRegex } },
+        { lastName: { $regex: searchRegex } },
+        { email: { $regex: searchRegex } },
+        { $expr: { $regexMatch: { input: { $concat: ['$firstName', ' ', '$lastName'] }, regex: searchRegex } } }
+      ]
+     }else{
+      delete formatQuery.search
+     }
+     let queryCommand = User.find(formatQuery);
+ 
+     // select fields
+     if (req.query.fields) {
+       const fields = req.query.fields.split(",").join(" ");
+       queryCommand = queryCommand.select(fields);
+     } else {
+       queryCommand = queryCommand.select("-__v");
+     }
+     // sort
+     if (req.query.sort) {
+       const sortBy = req.query.sort.split(",").join(" ");
+       queryCommand = queryCommand.sort(sortBy);
+     }
+     // dấu cộng để conver str to number
+     const page = +req.query.page || 1;
+     const limit = +req.query.limit || 10;
+     const skip = (page - 1) * limit;
+     queryCommand = queryCommand
+       .skip(skip)
+       .limit(limit)
+       .populate()
+     const [totalDocuments, users] = await Promise.all([
+       User.find(formatQuery).countDocuments(),
+       queryCommand.skip(skip).limit(limit),
+     ]);
+     res.status(200).json({
       success: true,
+      counts: totalDocuments,
       data: users,
     });
   } catch (error) {
     next(error);
   }
-};
-const updateUser = async (req, res, next) => {
+}
+
+// const uploadAvatar = async (req, res, next) => {
+//   try {
+//     const user = await User.findById({ _id: req.user._id });
+//     const upload = uploadUserCloud.single("image");
+//     if (!user) throw new Error("User not found");
+//     if (user.avatar?.public_id !== "public_id") {
+//       await cloudinary.uploader.destroy(user.avatar.public_id);
+//     }
+//     upload(req, res, async (err) => {
+//       if (err) throw new Error(err);
+//       if (!req.file) throw new Error("Missing image");
+//       user.avatar.public_id = req.file.filename;
+//       user.avatar.url = req.file.path;
+//       await user.save();
+//     });
+//     res.status(200).json({ success: true, data: user });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+const updateCurrentUser = async (req, res, next) => {
   try {
-    const { firstName, lastName, phone } = req.body;
-    if (!req.user?._id || Object.keys(req.body).length === 0)
+    const { firstName, lastName, phone, email} = JSON.parse(req.body.document);
+    if (!req.user?._id || !(firstName && lastName && phone && email))
       throw new Error("Missing inputs");
-    const user = await User.findByIdAndUpdate(
+    let img;
+   
+    let user = await User.findById(
       req.user._id,
-      { firstName, lastName, phone },
-      { new: true }
-    ).select(
-      "-password -refreshToken -role -passwordChangeAt -passwordResetToken -passwordResetExpires"
-    );
+    ).select(excludeFields)
+    if (req.file) {
+      img = await uploadToCloudinary(req.file.buffer,USER_FOLDER);
+      img = { url: img.url, public_id: img.public_id };
+      if(user.avatar?.public_id){
+        await cloudinary.uploader.destroy(user.avatar.public_id);
+      }
+    }
     if (!user) throw new Error("User not found");
+    user.firstName = firstName || user.firstName;
+    user.lastName = lastName || user.lastName;
+    user.phone = phone || user.phone;
+    user.email = email || user.email;
+    user.avatar = img || user.avatar;
+    await user.save();
     res.status(200).json({
       success: true,
       data: user,
@@ -382,8 +449,8 @@ const addAddress = async (req, res, next) => {
 };
 const updateCart = async (req, res, next) => {
   try {
-    const { product, quantity, color } = req.body;
-    if (!product || !quantity || !color) throw new Error("Missing inputs");
+    const { product, quantity=1, color } = req.body;
+    if (!product || !color) throw new Error("Missing inputs");
     const user = await User.findById({ _id: req.user._id }).select("carts");
     if (!user) throw new Error("User not found");
     const alreadyHaveProductColor = user.carts?.find(
@@ -409,7 +476,7 @@ const updateCart = async (req, res, next) => {
           },
         },
         { new: true }
-      ).select("carts");
+      );
     } else {
       carts = await User.findByIdAndUpdate(
         req.user._id,
@@ -423,13 +490,34 @@ const updateCart = async (req, res, next) => {
           },
         },
         { new: true }
-      ).select("carts");
+      );
     }
-    res.status(200).json({ success: true, data: carts });
+    res.status(200).json({ success: true, data: 'oke' });
   } catch (error) {
     next(error);
   }
 };
+const removeCart = async (req, res, next) => {
+  try {
+    const { product,color } = req.body;
+    if (!product || !color) throw new Error("Missing inputs");
+    const  data = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $pull: {
+          carts: {
+            product,
+            color
+          },
+        },
+      },
+      { new: true }
+    ).select("carts");
+    res.status(200).json({ success: true, data:data });
+  } catch (error) {
+    next(error);
+  }
+}
 export {
   register,
   finalRegister,
@@ -438,10 +526,11 @@ export {
   forgotPassword,
   resetPassword,
   getCurrentUser,
-  updateUser,
+  updateCurrentUser,
   updatePassword,
-  getAllUser,
-  uploadAvatar,
+  getAllUsers,
+ // uploadAvatar,
   addAddress,
   updateCart,
+  removeCart
 };

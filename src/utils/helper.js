@@ -30,3 +30,9 @@ export const generateOTP = ()=>{
   // 100000 - 999999
   return Math.floor(100000 + Math.random() * 900000);
 }
+export const extractPublicId = (url) => {
+  const parts = url.split('/');
+  const filename = parts[parts.length - 1];
+  const publicId = filename.split('.')[0];
+  return publicId;
+};

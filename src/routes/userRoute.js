@@ -1,18 +1,20 @@
 import express from "express";
+import { upload } from "~/configs/cloudinary";
 import {
   addAddress,
   finalRegister,
   forgotPassword,
-  getAllUser,
+  getAllUsers,
   getCurrentUser,
   loginUser,
   refreshTokenUser,
   register,
+  removeCart,
   resetPassword,
   updateCart,
+  updateCurrentUser,
   updatePassword,
-  updateUser,
-  uploadAvatar,
+  //uploadAvatar,
 } from "~/controllers/userController";
 import { isAdmin, verifyAccessToken } from "~/middleware/verifyToken";
 const Router = express.Router();
@@ -27,11 +29,14 @@ Router.put("/reset-password/:resetToken", resetPassword);
 
 Router.route("/")
   .get(verifyAccessToken, getCurrentUser)
-  .put(verifyAccessToken, updateUser);
-Router.route("/upload-avatar").put(verifyAccessToken, uploadAvatar);
-Router.route("/get-all-user").get([verifyAccessToken,isAdmin], getAllUser);
+  .put(verifyAccessToken,upload.single('avatar'), updateCurrentUser);
+//Router.route("/upload-avatar").put(verifyAccessToken, uploadAvatar);
+Router.route("/get-users").get([verifyAccessToken,isAdmin], getAllUsers);
 Router.route("/password").put(verifyAccessToken, updatePassword);
 Router.route("/address").post(verifyAccessToken, addAddress);
-Router.route("/cart").put(verifyAccessToken, updateCart);
+Router
+.route("/cart")
+.put(verifyAccessToken, updateCart)
+.delete(verifyAccessToken, removeCart);
 
 export const userRoute = Router;
