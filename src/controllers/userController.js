@@ -370,7 +370,7 @@ const getAllUsers = async (req, res, next) => {
 // };
 const updateCurrentUser = async (req, res, next) => {
   try {
-    const { firstName, lastName, phone, email} = JSON.parse(req.body.document);
+    const { firstName, lastName, phone, email,address} = JSON.parse(req.body.document);
     if (!req.user?._id || !(firstName && lastName && phone && email))
       throw new Error("Missing inputs");
     let img;
@@ -391,6 +391,7 @@ const updateCurrentUser = async (req, res, next) => {
     user.phone = phone || user.phone;
     user.email = email || user.email;
     user.avatar = img || user.avatar;
+    user.address = address || user.address;
     await user.save();
     res.status(200).json({
       success: true,
@@ -518,6 +519,41 @@ const removeCart = async (req, res, next) => {
     next(error);
   }
 }
+const updateWishlist = async (req, res, next) => {
+  try {
+    const { product } = req.body;
+    if (!product) throw new Error("Missing inputs");
+    let user = await User.findById({ _id: req.user._id }).select("wishlist");
+    if (!user) throw new Error("User not found");
+    const alreadyHaveProduct = user.wishlist?.find(
+      (item) => item.toString() === product
+    );
+    if(alreadyHaveProduct){
+      await User.findByIdAndUpdate(
+        req.user._id,
+        {
+          $pull: {
+            wishlist: product,
+          },
+        },
+        { new: true }
+      );
+    }else{
+      await User.findByIdAndUpdate(
+        req.user._id,
+        {
+          $push: {
+            wishlist: product,
+          },
+        },
+        { new: true }
+      );
+    }
+    res.status(200).json({ success: true, message: "Update wishlist successfully" });
+  } catch (error) {
+    next(error);
+  }
+}
 export {
   register,
   finalRegister,
@@ -532,5 +568,6 @@ export {
  // uploadAvatar,
   addAddress,
   updateCart,
-  removeCart
+  removeCart,
+  updateWishlist
 };

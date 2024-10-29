@@ -4,20 +4,22 @@ var orderSchema = new mongoose.Schema({
   products: [
     {
       product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
-      counts: Number,
+      quantity: Number,
       color: String,
     },
   ],
+  total:Number,
   orderBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
   },
-  paymentIntent: {},
   status: {
     type: String,
-    default: "Processing",
+    default: "Succeed",
     enum: ["Cancelled", "Processing", "Succeed"],
   },
+},{
+  timestamps: true
 });
 
 //Export the model

@@ -1,6 +1,5 @@
 import jwt from "jsonwebtoken";
 const verifyAccessToken = (req, res, next) => {
-  console.log(req.headers.authorization)
   try {
     if (
       !req.headers.authorization ||

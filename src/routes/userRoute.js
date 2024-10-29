@@ -14,6 +14,7 @@ import {
   updateCart,
   updateCurrentUser,
   updatePassword,
+  updateWishlist,
   //uploadAvatar,
 } from "~/controllers/userController";
 import { isAdmin, verifyAccessToken } from "~/middleware/verifyToken";
@@ -34,6 +35,7 @@ Router.route("/")
 Router.route("/get-users").get([verifyAccessToken,isAdmin], getAllUsers);
 Router.route("/password").put(verifyAccessToken, updatePassword);
 Router.route("/address").post(verifyAccessToken, addAddress);
+Router.route("/wish-list").put(verifyAccessToken, updateWishlist);
 Router
 .route("/cart")
 .put(verifyAccessToken, updateCart)

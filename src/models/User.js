@@ -31,17 +31,21 @@ var userSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
-    addresses:[
-      {
-        address:{
-          type:String,
-        },
-        isDefault:{
-          type:Boolean,
-          default:false,
-        }
-      }
-    ],
+    // addresses:[
+    //   {
+    //     address:{
+    //       type:String,
+    //     },
+    //     isDefault:{
+    //       type:Boolean,
+    //       default:false,
+    //     }
+    //   }
+    // ],
+    address: {
+      type: String,
+      required: false,
+    },
     wishlist: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Wishlist",

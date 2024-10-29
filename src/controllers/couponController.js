@@ -1,4 +1,4 @@
-const { default: Coupon } = require("~/models/Coupon");
+import Coupon from "~/models/Coupon";
 
 const getAllCoupons = async (req, res, next) => {
     try {
