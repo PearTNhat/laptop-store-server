@@ -1,10 +1,10 @@
 import express from "express";
-import { createBrand, deleteBrand, getAllBrand, updateBrand } from "~/controllers/brandController";
+import { createBrand, deleteBrand, getAllBrands, updateBrand } from "~/controllers/brandController";
 import { isAdmin, verifyAccessToken } from "~/middleware/verifyToken";
 const Router = express.Router();
 
 Router.route("/")
-  .get(getAllBrand)
+  .get(getAllBrands)
   .post([verifyAccessToken, isAdmin], createBrand);
 Router.route("/:bid")
   .put([verifyAccessToken, isAdmin], updateBrand)

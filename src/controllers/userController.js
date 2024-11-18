@@ -273,10 +273,12 @@ const getCurrentUser = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id).select(
       excludeFields
-    ).populate({
+    ).populate([{
       path: 'carts.product',
       select: 'title price discountPrice colors',
-    });
+    },{
+      path: 'wishlist.product'
+    }]);
     res.status(200).json({
       success: true,
       data: user,
@@ -525,15 +527,18 @@ const updateWishlist = async (req, res, next) => {
     if (!product) throw new Error("Missing inputs");
     let user = await User.findById({ _id: req.user._id }).select("wishlist");
     if (!user) throw new Error("User not found");
-    const alreadyHaveProduct = user.wishlist?.find(
-      (item) => item.toString() === product
+    const alreadyHaveProduct = user.wishlist?.some(
+      (item) => item.product.toString() === product
     );
+    console.log(alreadyHaveProduct)
     if(alreadyHaveProduct){
       await User.findByIdAndUpdate(
         req.user._id,
         {
           $pull: {
-            wishlist: product,
+            wishlist: {
+              product
+            },
           },
         },
         { new: true }
@@ -543,7 +548,9 @@ const updateWishlist = async (req, res, next) => {
         req.user._id,
         {
           $push: {
-            wishlist: product,
+            wishlist: {
+              product
+            },
           },
         },
         { new: true }
@@ -554,6 +561,29 @@ const updateWishlist = async (req, res, next) => {
     next(error);
   }
 }
+const updateRole = async (req, res, next) => {
+  try {
+    const { role,userId } = req.body;
+    if (!role || !userId) throw new Error("Missing role");
+    if (role !== "user" && role !== "admin") {
+      throw new Error("Role must be user or admin");
+    }
+    if(req.user.role !== 'admin') throw new Error("You are not admin");
+    await User.findByIdAndUpdate(
+      userId,
+      {
+        role,
+      },
+      { new: true }
+    );
+    res.status(200).json({
+      success: true,
+      message:'Update role successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 export {
   register,
   finalRegister,
@@ -569,5 +599,6 @@ export {
   addAddress,
   updateCart,
   removeCart,
-  updateWishlist
+  updateWishlist,
+  updateRole
 };

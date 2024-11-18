@@ -62,12 +62,16 @@ const getOrdersUser = async (req, res, next) => {
         const filter = {}
         if(req.query.status){
             filter.status = req.query.status;
+        }else{
+            delete formatQuery.status;
         }
         let orders =await Order.find(filter).populate([{
             path: "products.product",
           }]);
         if (req.query.title) {
             orders = orders.filter((order) => order.products.some((p) => p.product.title.toLowerCase().includes(req.query.title.toLowerCase())));
+        }else{
+            delete formatQuery.title;
         }
         orders = orders.slice(skip, skip + limit);
         const totalDocument = orders.length;

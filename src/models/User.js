@@ -46,10 +46,11 @@ var userSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
-    wishlist: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Wishlist",
-    },
+    wishlist: [
+      {
+        product: { type: mongoose.Schema.Types.ObjectId,ref: "Product" },
+      }
+    ],
     carts:[
       {
         product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },

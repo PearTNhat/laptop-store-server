@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
-const verifyAccessToken = (req, res, next) => {
+import User from "~/models/User";
+const verifyAccessToken = async (req, res, next) => {
   try {
     if (
       !req.headers.authorization ||
@@ -9,7 +10,8 @@ const verifyAccessToken = (req, res, next) => {
     }
     const accessToken = req.headers.authorization.split(" ")[1];
     const decode = jwt.verify(accessToken, process.env.JWT_SECRET);
-    req.user = decode;
+    const user = await User.findById(decode._id);
+    req.user = user;
     next();
   } catch (error) {
     // if(error instanceof jwt.JsonWebTokenError){

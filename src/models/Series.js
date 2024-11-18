@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 // Declare the Schema of the Mongo model
-var brandSchema = new mongoose.Schema({
+var seriesSchema = new mongoose.Schema({
     title:{
         type:String,
         required:true,
@@ -17,13 +17,9 @@ var brandSchema = new mongoose.Schema({
         unique:true,
         lowercase:true,
     },
-    series:[{
-        type:String,
-        ref:'Series',
-    }],
 },{
     timestamps:true
 });
 
 //Export the model
-module.exports = mongoose.model('Brand', brandSchema);
+module.exports = mongoose.model('Series', seriesSchema);

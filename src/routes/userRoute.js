@@ -14,6 +14,7 @@ import {
   updateCart,
   updateCurrentUser,
   updatePassword,
+  updateRole,
   updateWishlist,
   //uploadAvatar,
 } from "~/controllers/userController";
@@ -41,4 +42,5 @@ Router
 .put(verifyAccessToken, updateCart)
 .delete(verifyAccessToken, removeCart);
 
+Router.route("/admin").put(verifyAccessToken,isAdmin,updateRole);
 export const userRoute = Router;

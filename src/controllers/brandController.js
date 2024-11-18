@@ -1,6 +1,6 @@
 import Brand from '~/models/Brand';
 
-const getAllBrand = async (req, res, next) => {
+const getAllBrands = async (req, res, next) => {
     try {
         const brand = await Brand.find();
         res.status(200).json({success: true, data:brand});
@@ -40,4 +40,4 @@ const deleteBrand = async (req, res, next) => {
         next(error);
     }
 }
-export {createBrand,updateBrand,deleteBrand, getAllBrand};
+export {createBrand,updateBrand,deleteBrand, getAllBrands};

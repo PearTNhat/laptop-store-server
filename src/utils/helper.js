@@ -20,6 +20,11 @@ export const handleUpdateTotalProductRating = async ({productId, type, rating })
   } else if (type === "DELETE") {
     length = countRating - 1;
   }
+  if(length === 0){
+    productRes.totalRating = 0;
+    await productRes.save();
+    return;
+  }
   // lấy tổng số sao  *  trung bình sao + số sao mới / tổng số sao + 1
   const totalRating =
     (countRating * productRes.totalRating + Number(rating))/ length;

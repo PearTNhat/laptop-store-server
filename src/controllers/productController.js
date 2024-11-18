@@ -1,10 +1,11 @@
 import slugify from "slugify";
-import { cloudinary, PRODUCT_FOLDER, uploadProductCloud, uploadToCloudinary } from "~/configs/cloudinary";
+import { cloudinary,
+   PRODUCT_FOLDER, uploadProductCloud, uploadToCloudinary } from "~/configs/cloudinary";
 import Product from "~/models/Product";
 const createProduct = async (req, res, next) => {
   try {
-    const { title, description, price, brand, discountPrice, category } = JSON.parse(req.body.document);
-    if (!(title && description && price && brand && category && discountPrice)) throw new Error("Missing required fields");
+    const { title, description, price, brand, discountPrice,configs} = JSON.parse(req.body.document);
+    if (!(title && description && price && brand && discountPrice)) throw new Error("Missing required fields");
     const slug = slugify(title, {
       lower: true,
       strict: true,
@@ -20,7 +21,7 @@ const createProduct = async (req, res, next) => {
       slug,
       brand,
       discountPrice,
-      category,
+      configs,
       primaryImage: { url: image.url, public_id: image.public_id }
     });
     res.status(201).json({
@@ -41,7 +42,6 @@ const createProductColor = async (req, res, next) => {
     if (!product) throw new Error("Product not found");
     const isColorExist = product.colors.find((item) => item.color.toLowerCase() === color.toLowerCase());
     if (isColorExist) throw new Error("Color already exist");
-    console.log(typeof req.files)
     const pImage = await uploadToCloudinary(req.files?.primaryImage[0].buffer, PRODUCT_FOLDER)
     let images = []
     for (let image of req.files?.images) {
@@ -67,8 +67,8 @@ const createProductColor = async (req, res, next) => {
 const updateProduct = async (req, res, next) => {
   try {
     const { slug } = req.params;
-    const { title, description, price, brand, discountPrice, category } = JSON.parse(req.body.document);
-    if (!(title && description && price && brand && category && discountPrice))
+    const { title, description, price, brand, discountPrice,  } = JSON.parse(req.body.document);
+    if (!(title && description && price && brand  && discountPrice))
       throw new Error("Missing required fields");
     const product = await Product.findOne({ slug })
     if (!product) throw new Error("Product not found")
@@ -81,7 +81,6 @@ const updateProduct = async (req, res, next) => {
     }
     product.title = title || product.title;
     product.description = description || product.description;
-    product.category = category || product.category;
     product.brand = brand || product.brand;
     product.price = price || product.price;
     product.discountPrice = discountPrice || product.discountPrice;
@@ -166,10 +165,10 @@ const getProduct = async (req, res, next) => {
           }]
         }]
       },
-      {
-        path: "category",
-        foreignField: 'slug'
-      }
+      // {
+      //   path: "category",
+      //   foreignField: 'slug'
+      // }
     ]);
     res.status(200).json({
       success: true,
@@ -197,6 +196,15 @@ const getAllProducts = async (req, res, next) => {
       const colors = formatQuery.colors.split(',').map((color) => new RegExp(color, "i"));
       formatQuery.colors = { $elemMatch: { color: { $in: colors } } };
     }
+    //k show nhung sp k có color trong client
+    formatQuery.colors ={...formatQuery?.colors ,$exists: true, $ne: [] };
+    //co show nhung sp k có color trong admin
+    if(formatQuery.showAll){
+      delete formatQuery.colors.$exists
+      delete formatQuery.colors.$ne
+      if(Object.keys(formatQuery.colors).length === 0)  delete formatQuery.colors
+      delete formatQuery.showAll
+    }
     // filter title
     if (req.query.title) {
       formatQuery.title = { $regex: req.query.title, $options: "i" };
@@ -222,10 +230,7 @@ const getAllProducts = async (req, res, next) => {
     queryCommand = queryCommand
       .skip(skip)
       .limit(limit)
-      .populate([{
-        path: "category",
-        foreignField: 'slug'
-      }])
+      .populate([])
     const [totalDocuments, products] = await Promise.all([
       Product.find(formatQuery).countDocuments(),
       queryCommand.skip(skip).limit(limit),
@@ -240,38 +245,9 @@ const getAllProducts = async (req, res, next) => {
     next(error);
   }
 };
-const uploadImagesProduct = async (req, res, next) => {
-  try {
-    const { pid } = req.params;
-    if (!pid) throw new Error("Missing product id");
-    let product = await Product.findById(pid);
-    if (!product) throw new Error("Product not found");
-    // const upload = uploadProductCloud.array("images", 10);
-    // await new Promise((resolve, reject) => {
-    //   // Hàm này là up ảnh lên cloundinary
-    //   upload(req, res, async (err) => {
-    //     if (err) reject(err);
-    //     if (!req.files) reject("Missing images");
-    //     resolve();
-    //   });
-    // });
-    // product = await Product.findByIdAndUpdate(
-    //   pid,
-    //   {
-    //     $push: {
-    //       images: {
-    //         $each: req.files.map((file) => ({
-    //           url: file.path,
-    //           public_id: file.filename,
-    //         })),
-    //       },
-    //     },
-    //   },
-    //   { new: true }
-    // );
-    res.status(200).json({ success: true, data: product });
-  } catch (error) {
-    next(error);
-  }
-};
-export { createProduct, createProductColor, getProduct, getAllProducts, uploadImagesProduct, updateProduct, updateProductColor };
+export { createProduct,
+   createProductColor,
+   getProduct,
+   getAllProducts,
+   updateProduct,
+   updateProductColor };

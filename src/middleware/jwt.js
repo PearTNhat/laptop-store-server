@@ -1,6 +1,6 @@
 import {sign} from 'jsonwebtoken';
 const generateAccessToken = ({_id,role}) => {
-    return sign({ _id ,role }, process.env.JWT_SECRET, {
+    return sign({ _id }, process.env.JWT_SECRET, {
         expiresIn: "1d",
     });
 }
