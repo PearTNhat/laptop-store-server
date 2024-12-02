@@ -17,6 +17,10 @@ var productSchema = new mongoose.Schema({
         type: Array,
         // required: true,
     },
+    features:{
+        type: Array,
+        required: true,
+    },
     brand: {
         type: String,
         ref: 'Brand',
@@ -35,10 +39,6 @@ var productSchema = new mongoose.Schema({
             message: 'Discount price should be less than or equal to the original price.'
         }
     },
-    // category: {
-    //     type: String,
-    //     ref: 'ProductCategory',
-    // },
     quantity: {
         type: Number,
         default: 0,
@@ -95,8 +95,20 @@ var productSchema = new mongoose.Schema({
         ref: 'Series',
     },
     configs: {
+        aiChip: {
+            description: String,
+            name: {
+                type: String,
+                default: 'Chip AI',
+            },
+            priority: {
+                type: Number,
+                default: 0
+            }
+        },
         cpu: {
             value: String,
+            description: String,
             name: {
                 type: String,
                 default: 'CPU',
@@ -104,44 +116,11 @@ var productSchema = new mongoose.Schema({
             priority: {
                 type: Number,
                 default: 1
-            },
-            code: {
-                type: String,
-                default: 'cpu',
-            },
-        },
-        ram: {
-            value: String,
-            name: {
-                type: String,
-                default: 'RAM',
-            },
-            priority: {
-                type: Number,
-                default: 4
-            },
-            code: {
-                type: String,
-                default: 'ram',
-            },
-        },
-        hardDrive: {
-            value: String,
-            name: {
-                type: String,
-                default: 'Ổ cứng',
-            },
-            priority: {
-                type: Number,
-                default: 5
-            },
-            code: {
-                type: String,
-                default: 'hard-drive',
-            },
+            }
         },
         graphicCard: {
             value: String,
+            description: String,
             name: {
                 type: String,
                 default: 'Card đồ họa',
@@ -149,151 +128,276 @@ var productSchema = new mongoose.Schema({
             priority: {
                 type: Number,
                 default: 2
-            },
-            code: {
-                type: String,
-                default: 'graphic-card',
-            },
+            }
         },
-        madeIn: {
+        ram: {
             value: String,
+            description: String,
             name: {
                 type: String,
-                default: "Xuất xứ",
-            },
-            priority: {
-                type: Number,
-                default: 1
-            },
-            code: {
-                type: String,
-                default: 'made-in',
-            },
-        },
-        weight: {
-            value: String,
-            name: {
-                type: String,
-                default: 'Trọng lượng',
-            },
-            priority: {
-                type: Number,
-                default: 10
-            },
-            code: {
-                type: String,
-                default: 'weight',
-            },
-        },
-        operatingSystem: {
-            value: String,
-            name: {
-                type: String,
-                default: 'Hệ điều hành',
-            },
-            priority: {
-                type: Number,
-                default: 7
-            },
-            code: {
-                type: String,
-                default: 'operating-system',
-            },
-        },
-        size: {
-            value: String,
-            name: {
-                type: String,
-                default: 'Kích thước',
-            },
-            priority: {
-                type: Number,
-                default: 8
-            },
-            code: {
-                type: String,
-                default: 'size',
-            },
-        },
-        need: {
-            value: String,
-            name: {
-                type: String,
-                default: 'Nhu cầu',
-            },
-            priority: {
-                type: Number,
-                default: 11
-            },
-            code: {
-                type: String,
-                default: 'need',
-            },
-        },
-        yearOfLaunch: {
-            value: String,
-            name: {
-                type: String,
-                default: 'Năm ra mắt',
-            },
-            priority: {
-                type: Number,
-                default: 13
-            },
-            code: {
-                type: String,
-                default: 'year-of-launch',
-            },
-        },
-        screen: {
-            value: String,
-            name: {
-                type: String,
-                default: "Màn hình",
+                default: 'RAM',
             },
             priority: {
                 type: Number,
                 default: 3
-            },
-            code: {
-                type: String,
-                default: 'screen',
-            },
+            }
         },
-        battery: {
+        hardDrive: {
             value: String,
+            description: String,
             name: {
                 type: String,
-                default: 'Pin',
+                default: 'Ổ cứng',
+            },
+            priority: {
+                type: Number,
+                default: 4
+            }
+        },
+        refreshRate:{
+            description: String,
+            name: {
+                type: String,
+                default: 'Tần số quét',
+            },
+            priority: {
+                type: Number,
+                default: 5
+            }
+        },
+        panel:{
+            description: String,
+            name: {
+                type: String,
+                default: 'Chât liệu tấm nền',
+            },
+            priority: {
+                type: Number,
+                default: 6
+            }
+        },
+        screenTechnology:{
+            description: String,
+            name: {
+                type: String,
+                default: 'Công nghệ màn hình',
+            },
+            priority: {
+                type: Number,
+                default: 7
+            }
+        },
+        screen: {
+            value: String,
+            description: String,
+            name: {
+                type: String,
+                default: "Kích thước màn hình",
+            },
+            priority: {
+                type: Number,
+                default: 8
+            }
+        },
+        resolution: {
+            description: String,
+            name: {
+                type: String,
+                default: 'Độ phân giải màn hình',
+            },
+            priority: {
+                type: Number,
+                default: 8
+            }
+        },
+        audioTechnology:{
+            description: String,
+            name: {
+                type: String,
+                default: 'Công nghệ âm thanh',
             },
             priority: {
                 type: Number,
                 default: 9
-            },
-            code: {
-                type: String,
-                default: 'battery',
-            },
+            }
         },
         connectionPort: {
-            value: String,
+            description: String,
             name: {
                 type: String,
                 default: 'Cổng kết nối',
             },
             priority: {
                 type: Number,
-                default: 6
-            },
-            code: {
+                default: 10
+            }
+        },
+        cardReader: {
+            description: String,
+            name: {
                 type: String,
-                default: 'connection-port',
+                default: 'Khe đọc thẻ nhớ',
             },
-        }
+            priority: {
+                type: Number,
+                default: 10
+            }
+        },
+        bluetooth:{
+            description: String,
+            name: {
+                type: String,
+                default: 'Bluetooth',
+            },
+            priority: {
+                type: Number,
+                default: 11
+            }
+        },
+        material:{
+            description: String,
+            name: {
+                type: String,
+                default: 'Chất liệu',
+            },
+            priority: {
+                type: Number,
+                default: 12
+            }
+        },
+        
+        size: {
+            value: String,
+            description: String,
+            name: {
+                type: String,
+                default: 'Kích thước',
+            },
+            priority: {
+                type: Number,
+                default: 13
+            }
+        },
+        weight: {
+            value: String,
+            description: String,
+            name: {
+                type: String,
+                default: 'Trọng lượng',
+            },
+            priority: {
+                type: Number,
+                default: 14
+            }
+        },
+        specialFeature: {
+            description: String,
+            name: {
+                type: String,
+                default: 'Tính năng đặc biệt',
+            },
+            priority: {
+                type: Number,
+                default: 15
+            }
+        },
+        keyboardLight: {
+            description: String,
+            name: {
+                type: String,
+                default: 'Loại đèn bàn phím',
+            },
+            priority: {
+                type: Number,
+                default: 16
+            }
+        },
+        security: {
+            description: String,
+            name: {
+                type: String,
+                default: 'Bảo mật',
+            },
+            priority: {
+                type: Number,
+                default: 17
+            }
+        },
+        webcam: {
+            description: String,
+            name: {
+                type: String,
+                default: 'WebCam',
+            },
+            priority: {
+                type: Number,
+                default: 18
+            }
+        },
+        operatingSystem: {
+            description: String,
+            name: {
+                type: String,
+                default: 'Hệ điều hành',
+            },
+            priority: {
+                type: Number,
+                default: 19
+            }
+        },
+        battery: {
+            value: String,
+            description: String,
+            name: {
+                type: String,
+                default: 'Pin',
+            },
+            priority: {
+                type: Number,
+                default: 20
+            }
+        },
+        need: {
+            description: String,
+            name: {
+                type: String,
+                default: 'Nhu cầu',
+            },
+            priority: {
+                type: Number,
+                default: 21
+            }
+        },
+        madeIn: {
+            value: String,
+            description: String,
+            name: {
+                type: String,
+                default: "Xuất xứ",
+            },
+            priority: {
+                type: Number,
+                default: 22
+            }
+        },
+        yearOfLaunch: {
+            value: String,
+            description: String,
+            name: {
+                type: String,
+                default: 'Năm ra mắt',
+            },
+            priority: {
+                type: Number,
+                default: 23
+            }
+        },
+       
+       
     },
     totalRating: {
         type: Number,
-        default: 0,
+       // default: 0,
     },
 }, {
     timestamps: true,

@@ -192,10 +192,15 @@ const getAllProducts = async (req, res, next) => {
     queryStr = queryStr.replace(/\b(gte|gt|lte|lt|ne)\b/g, (match) => `$${match}`);
     let formatQuery = JSON.parse(queryStr);
     // filter color
-    if (req.query.colors) {
+    if (formatQuery.colors) {
       const colors = formatQuery.colors.split(',').map((color) => new RegExp(color, "i"));
       formatQuery.colors = { $elemMatch: { color: { $in: colors } } };
     }
+    if (formatQuery.ram) {
+      formatQuery['configs.ram.currentValue'] = { $in: formatQuery.ram.split(',') };
+    }
+    delete formatQuery.ram // vi k có field ram trong db
+    ////////////////////////////
     //k show nhung sp k có color trong client
     formatQuery.colors ={...formatQuery?.colors ,$exists: true, $ne: [] };
     //co show nhung sp k có color trong admin
@@ -205,8 +210,9 @@ const getAllProducts = async (req, res, next) => {
       if(Object.keys(formatQuery.colors).length === 0)  delete formatQuery.colors
       delete formatQuery.showAll
     }
+    ///
     // filter title
-    if (req.query.title) {
+    if (formatQuery.title) {
       formatQuery.title = { $regex: req.query.title, $options: "i" };
     }
     let queryCommand = Product.find(formatQuery);
