@@ -6,19 +6,31 @@ var orderSchema = new mongoose.Schema({
       product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
       quantity: Number,
       color: String,
+      status: {
+        type: Number,
+        default: 0,
+        enum: [-1, 0, 1],
+      },
     },
   ],
-  total:Number,
+  total: Number,
+  address: {
+    type: String,
+    required: true,
+  },
+  phone: {
+    type: String,
+    required: true
+  },
+  name: {
+    type: String,
+    required: true
+  },
   orderBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
   },
-  status: {
-    type: String,
-    default: "Succeed",
-    enum: ["Cancelled", "Processing", "Succeed"],
-  },
-},{
+}, {
   timestamps: true
 });
 
