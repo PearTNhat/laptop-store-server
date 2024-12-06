@@ -1,0 +1,18 @@
+export const brand = ['acer',
+    'lenovo',
+    'asus',
+    'dell',
+    'lg',
+    'hp',
+    'microsoft',
+    'gigabyte',
+    'gaming',
+    'msi',
+    'vaio',
+    'huawei',
+    'masstel',
+    'xiaomi',
+    'fujitsu',
+    'avita',
+    'intel'
+]

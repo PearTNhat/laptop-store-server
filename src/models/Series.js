@@ -5,17 +5,15 @@ var seriesSchema = new mongoose.Schema({
     title:{
         type:String,
         required:true,
-        unique:true,
     },
     image:{
         url:String,
         public_id:String,
     },
-    slug:{
-        type:String,
+    brand:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Brands',
         required:true,
-        unique:true,
-        lowercase:true,
     },
 },{
     timestamps:true

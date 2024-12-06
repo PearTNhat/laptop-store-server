@@ -17,10 +17,6 @@ var brandSchema = new mongoose.Schema({
         unique:true,
         lowercase:true,
     },
-    series:[{
-        type:String,
-        ref:'Series',
-    }],
 },{
     timestamps:true
 });

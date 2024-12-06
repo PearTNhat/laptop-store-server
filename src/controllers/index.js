@@ -1,9 +1,8 @@
-import ProductCategory from '~/models/ProductCategory';
 import { laptop } from '~/data/laptop';
-import { dataCategory } from '~/data/category';
+import { brand } from '~/data/brand';
+import { series } from '~/data/series';
 import slugify from 'slugify';
 import Product from '~/models/Product';
-import mongoose from 'mongoose';
 import User from '~/models/User';
 import Brand from '~/models/Brand'
 import Series from '~/models/Series'
@@ -21,35 +20,30 @@ function capitalizeFirstCharacter(str) {
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
 export const insertProduct = async (req, res, next) => {
+    let index= 0
     try {
         const dp = laptop
         for (let i = 0; i < dp.length; i++) {
-            // const colors = [];
-
-            // const soldQuantity = Math.floor(Math.random() * 100);
-            // const quantity = Math.floor(Math.random() * 100);
-            // const colorSoldQuantity = Math.floor(soldQuantity / dp[i].colors.length);
-            // const colorQuantity = Math.floor(quantity / dp[i].colors.length);
-            // for (let j = 0; j < dp[i].colors.length; j++) {
-            //     colors.push({
-            //         color: dp[i].colors[j].color,
-            //         quantity: colorQuantity,
-            //         primaryImage: { url: dp[i].colors[j].primaryImage },
-            //         soldQuantity: colorSoldQuantity,
-            //         images: dp[i].colors[j].images.map((image) => ({ url: image }))
-            //     });
-            // }
-            //  covert string to int
-            console.log(dp[i].slug)
+            //675189abdd22048362e0e587 dell
+            //675189acdd22048362e0e58f gigabyte
+            index = i
+            let sr = await Series.findOne({ title: capitalizeFirstCharacter(dp[i].series) })
+            if (dp[i].series === 'g5' && dp[i].brand === 'gigabyte') {
+                sr._id = '6751c78587dc8cd52b03f11e'
+                console.log('gigabyte', sr)
+            }
+            if (dp[i].series === 'g5' && dp[i].brand === 'dell') {
+                sr._id = '6751c78487dc8cd52b03f10c'
+                console.log('dell', sr)
+            }
             const product = new Product({
                 title: dp[i].title,
                 slug: dp[i].slug,
-                brand: dp[i].brand,
-                price: dp[i].price ,
+                price: dp[i].price,
                 discountPrice: dp[i].discountPrice,
                 quantity: dp[i].quantity,
                 brand: dp[i].brand,
-                series: dp[i].series,
+                series: sr._id,
                 soldQuantity: dp[i].soldQuantity,
                 features: dp[i].features,
                 description: dp[i].description,
@@ -62,6 +56,7 @@ export const insertProduct = async (req, res, next) => {
         }
         res.status(200).json({ message: "Insert product successfully" });
     } catch (error) {
+        clg('index',index)
         next(error);
     }
 }
@@ -132,32 +127,36 @@ export const updateRatingProduct = async (req, res, next) => {
 }
 export const insertBrand = async (req, res, next) => {
     try {
-        const data = []
-        const series = {}
-        const mySeries = []
-        for (let i = 0; i < laptop.length; i++) {
-            if (!data.includes(laptop[i].brand)) {
-                data.push(laptop[i].brand)
-            }
-            if (!mySeries.includes(laptop[i].series) && laptop[i].series != undefined) {
-                mySeries.push(laptop[i].series)
-            }
-            if (!series[laptop[i].brand]) {
-                series[laptop[i].brand] = []
-            }
-            if (!series[laptop[i].brand].includes(laptop[i].series)) {
-                series[laptop[i].brand].push(laptop[i].series)
-            }
+        for (let i = 0; i < brand.length; i++) {
+            const newBrand = new Brand({
+                title: capitalizeFirstCharacter(brand[i]),
+                slug: slugify(brand[i], { lower: true })
+            });
+            await newBrand.save();
         }
-        console.log(mySeries)
-        await Series.insertMany(mySeries.map((s) => ({ title: capitalizeFirstCharacter(s), slug: s })));
-        //await Brand.insertMany(data.map((brand) => ({ title: capitalizeFirstCharacter(brand), slug: brand,series:series[brand]})));
-        res.status(200).json({ mySeries });
+        res.status(200).json('oke');
     } catch (error) {
         next(error);
     }
 }
-
+export const insertSeries = async (req, res, next) => {
+    try {
+        for (const brand in series) {
+            for (let i = 0; i < series[brand].length; i++) {
+                const b = await Brand.findOne({ slug: brand })
+                const newSeries = new Series({
+                    title: capitalizeFirstCharacter(series[brand][i]),
+                    slug: slugify(series[brand][i], { lower: true }),
+                    brand: b._id
+                });
+                await newSeries.save();
+            }
+        }
+        res.status(200).json('oke');
+    } catch (error) {
+        next(error);
+    }
+}
 export const updateDescription = async (req, res, next) => {
     try {
         const data = laptop
@@ -197,7 +196,7 @@ export const createManyUser = async (req, res, next) => {
         next(error);
     }
 }
-const createComment = async ({ rating, product, content,user }) => {
+const createComment = async ({ rating, product, content, user }) => {
     try {
         if (!product) {
             throw new Error("Missing input");

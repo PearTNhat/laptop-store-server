@@ -2,10 +2,11 @@ import slugify from "slugify";
 import { cloudinary,
    PRODUCT_FOLDER, uploadProductCloud, uploadToCloudinary } from "~/configs/cloudinary";
 import Product from "~/models/Product";
+import { getNeedingProduct } from "~/utils/api";
 const createProduct = async (req, res, next) => {
   try {
-    const { title, description, price, brand, discountPrice,configs} = JSON.parse(req.body.document);
-    if (!(title && description && price && brand && discountPrice)) throw new Error("Missing required fields");
+    const { title, description, price, discountPrice,configs} = JSON.parse(req.body.document);
+    if (!(title && description && price  && discountPrice)) throw new Error("Missing required fields");
     const slug = slugify(title, {
       lower: true,
       strict: true,
@@ -19,7 +20,6 @@ const createProduct = async (req, res, next) => {
       description,
       price,
       slug,
-      brand,
       discountPrice,
       configs,
       primaryImage: { url: image.url, public_id: image.public_id }
@@ -184,20 +184,25 @@ const getAllProducts = async (req, res, next) => {
     const queryObj = { ...req.query };
     const excludeFields = ["page", "sort", "limit", "fields"];
     excludeFields.forEach((el) => delete queryObj[el]);
-
     //1B Advanced filtering
     // price[gte]=123 & price[lte]=123 => {price: {gte: 123, lte: 123}}
     let queryStr = JSON.stringify(queryObj);
     //{price: {gte: 1000}, rating: {gt: 4.5}} => {price: {$gte: 1000}, rating: {$gt: 4.5}}
     queryStr = queryStr.replace(/\b(gte|gt|lte|lt|ne)\b/g, (match) => `$${match}`);
     let formatQuery = JSON.parse(queryStr);
+    // need
+    if(formatQuery.desc){
+      let need = await getNeedingProduct({desc:formatQuery.desc})
+      formatQuery['configs.need.description'] = need
+    }
+    delete formatQuery.desc
     // filter color
     if (formatQuery.colors) {
       const colors = formatQuery.colors.split(',').map((color) => new RegExp(color, "i"));
       formatQuery.colors = { $elemMatch: { color: { $in: colors } } };
     }
     if (formatQuery.ram) {
-      formatQuery['configs.ram.currentValue'] = { $in: formatQuery.ram.split(',') };
+      formatQuery['configs.ram.value'] = { $in: formatQuery.ram.split(',') };
     }
     delete formatQuery.ram // vi k có field ram trong db
     ////////////////////////////

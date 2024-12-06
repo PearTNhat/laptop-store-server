@@ -1,5 +1,5 @@
 import express from "express";
-import { createManyUser, deleteManyProduct, insertBrand, insertProduct, randomRatingUser, updateDescription, updateProductData, updateRatingProduct } from "~/controllers";
+import { createManyUser, deleteManyProduct, insertBrand, insertProduct, insertSeries, randomRatingUser, updateDescription, updateProductData, updateRatingProduct } from "~/controllers";
 
 
 
@@ -12,6 +12,7 @@ Router.route("/insert-p")
 .put(updateProductData)
 Router.route("/update-p-r").put(updateRatingProduct)
 Router.route("/insert-brand").post(insertBrand)
+Router.route("/insert-series").post(insertSeries)
 Router.route("/user/rand-rating").post(randomRatingUser)
 Router.route("/user").post(createManyUser)
 

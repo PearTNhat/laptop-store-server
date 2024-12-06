@@ -107,7 +107,6 @@ var productSchema = new mongoose.Schema({
             }
         },
         cpu: {
-            value: String,
             description: String,
             name: {
                 type: String,
@@ -119,7 +118,6 @@ var productSchema = new mongoose.Schema({
             }
         },
         graphicCard: {
-            value: String,
             description: String,
             name: {
                 type: String,
@@ -265,7 +263,6 @@ var productSchema = new mongoose.Schema({
                 default: 12
             }
         },
-        
         size: {
             value: String,
             description: String,
