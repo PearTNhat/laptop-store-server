@@ -91,7 +91,7 @@ var productSchema = new mongoose.Schema({
     ],
     // thuộc dòng sản phẩm nào
     series: {
-        type: String,
+        type: mongoose.Schema.Types.ObjectId,
         ref: 'Series',
     },
     configs: {
