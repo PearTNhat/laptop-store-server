@@ -168,6 +168,13 @@ const loginUser = async (req, res, next) => {
       select: 'title price discountPrice colors',
     });
     if (!user) throw new Error("Email or password are not exist");
+    if(user.isBlocked) {
+      res.status(403).json({
+        success: true,
+        status:403,
+        message: "Your account has been blocked",
+      });
+    }
     if (await user.comparePassword(password)) {
       const newRefreshToken = generateRefreshToken(user._id);
       await User.findByIdAndUpdate(user._id, { refreshToken: newRefreshToken });
@@ -584,6 +591,27 @@ const updateRole = async (req, res, next) => {
     next(error);
   }
 };
+const updateBlock = async (req, res, next) => {
+  try {
+    const { isBlocked,userId } = req.body;
+    if ( !userId) throw new Error("Missing input");
+    if(isBlocked !== true && isBlocked !== false) throw new Error("Blocking must be true or false");
+    if(req.user.role !== 'admin') throw new Error("You are not admin");
+    await User.findByIdAndUpdate(
+      userId,
+      {
+        isBlocked,
+      },
+      { new: true }
+    );
+    res.status(200).json({
+      success: true,
+      message:'Update block successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+}
 export {
   register,
   finalRegister,
@@ -595,10 +623,10 @@ export {
   updateCurrentUser,
   updatePassword,
   getAllUsers,
- // uploadAvatar,
   addAddress,
   updateCart,
   removeCart,
   updateWishlist,
-  updateRole
+  updateRole,
+  updateBlock
 };

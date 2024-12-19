@@ -211,9 +211,11 @@ const getAllProducts = async (req, res, next) => {
     if (formatQuery.colors) {
       const colors = formatQuery.colors.split(',').map((color) => new RegExp(color, "i"));
       formatQuery.colors = { $elemMatch: { color: { $in: colors } } };
+      delete formatQuery.colors
     }
     if (formatQuery.ram) {
       formatQuery['configs.ram.value'] = { $in: formatQuery.ram.split(',') };
+      delete formatQuery.ram
     }else{
       delete formatQuery.ram
     }
@@ -271,7 +273,7 @@ const getAllProducts = async (req, res, next) => {
       }])
     const [totalDocuments, products] = await Promise.all([
       Product.find(formatQuery).countDocuments(),
-      queryCommand.skip(skip).limit(limit),
+      queryCommand,
     ]);
 
     res.status(200).json({

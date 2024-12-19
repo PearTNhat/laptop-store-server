@@ -1,7 +1,7 @@
 import Order from '~/models/Order';
 import User from '~/models/User';
 import Product from '~/models/Product';
-
+import mongoose from 'mongoose';
 
 const createOrder = async (req, res, next) => {
     try {
@@ -61,18 +61,31 @@ const getOrdersUser = async (req, res, next) => {
             orderBy: req.user._id
         }
         if (req.query.status) {
-            filter.status = req.query.status;
-        } else {
-            delete formatQuery.status;
+            filter.products = {}
+            filter.products = { $elemMatch: { status: req.query.status } }
         }
         let orders = await Order.find(filter).populate([{
             path: "products.product",
         }]);
-        if (req.query.title) {
-            orders = orders.filter((order) => order.products.some((p) => p.product.title.toLowerCase().includes(req.query.title.toLowerCase())));
-        } else {
-            delete formatQuery.title;
+        if (req.query.status) {
+            orders = orders.map(order => {
+                order.products = order.products.filter(product => product.status == req.query.status);
+                if (order.products.length === 0) {
+                    return null;
+                }
+                return order;
+            });
         }
+        if (req.query.title) {
+            orders = orders.map(order => {
+                order.products = order.products.filter((p) => p.product.title.toLowerCase().trim().includes(req.query.title.toLowerCase().trim()));
+                if (order.products.length === 0) {
+                    return null;
+                }
+                return order;
+            });
+        }
+        orders = orders.filter(Boolean);
         orders = orders.slice(skip, skip + limit);
         const totalDocument = orders.length;
 
@@ -104,20 +117,34 @@ const getAllOrders = async (req, res, next) => {
         const limit = +req.query.limit || 10;
         const skip = (page - 1) * limit;
         const filter = {}
+        // dùng filter để lọc nên k cần xóa key trong formatQuery
         if (req.query.status) {
             filter.products = {}
-            filter.products.status = req.query.status;
-        } else {
-            delete formatQuery.status;
+            filter.products = { $elemMatch: { status: req.query.status } }
         }
+        // tìm kiếm id
         let orders = await Order.find(filter).populate([{
             path: "products.product",
-        }, { path: "orderBy" }]);
-        if (req.query.title) {
-            orders = orders.filter((order) => order.products.some((p) => p.product.title.toLowerCase().includes(req.query.title.toLowerCase())));
-        } else {
-            delete formatQuery.title;
+        }, { path: "orderBy" }])
+        if (req.query.status) {
+            orders = orders.map(order => {
+                order.products = order.products.filter(product => product.status == req.query.status);
+                if (order.products.length === 0) {
+                    return null;
+                }
+                return order;
+            });
         }
+        if (req.query.title) {
+            orders = orders.map(order => {
+                order.products = order.products.filter((p) => p.product.title.toLowerCase().trim().includes(req.query.title.toLowerCase().trim()));
+                if (order.products.length === 0) {
+                    return null;
+                }
+                return order;
+            });
+        }
+        orders = orders.filter(Boolean);
         orders = orders.slice(skip, skip + limit);
         const totalDocument = orders.length;
 
@@ -149,7 +176,7 @@ const updateStatusOrderProduct = async (req, res, next) => {
 const updateInfoOrder = async (req, res, next) => {
     try {
         const { name, phone, address } = req.body;
-        const {orderId}=req.params;
+        const { orderId } = req.params;
         console.log(orderId);
         if (!name || !phone || !address || !orderId) {
             throw new Error('Missing input');
@@ -177,7 +204,7 @@ const deleteOrder = async (req, res, next) => {
 }
 const deleteProductOrder = async (req, res, next) => {
     try {
-        const {productId,orderId} = req.params;
+        const { productId, orderId } = req.params;
         if (!orderId || !productId) {
             throw new Error('Missing input');
         }
