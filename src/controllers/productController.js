@@ -1,9 +1,13 @@
 import mongoose from "mongoose";
 import slugify from "slugify";
 import { cloudinary,
-   PRODUCT_FOLDER, uploadProductCloud, uploadToCloudinary } from "~/configs/cloudinary";
+   PRODUCT_FOLDER, uploadToCloudinary } from "~/configs/cloudinary";
 import Product from "~/models/Product";
 import { getNeedingProduct } from "~/utils/api";
+const searchDesc = { // cái này mới làm 1 user nên nó sẽ lưu lại cái desc cũ và need cũ, nhiều user sẻ lưu id và check
+  desc:"",
+  need:""
+}
 const createProduct = async (req, res, next) => {
   try {
     const { title, description, price,features,brand,series, discountPrice,configs} = JSON.parse(req.body.document);
@@ -203,15 +207,32 @@ const getAllProducts = async (req, res, next) => {
     let formatQuery = JSON.parse(queryStr);
     // need
     if(formatQuery.desc){
-      let need = await getNeedingProduct({desc:formatQuery.desc})
-      formatQuery['configs.need.description'] = need
+      if(formatQuery.desc.toLowerCase() === searchDesc.desc.toLowerCase()){
+        formatQuery['configs.need.description'] = searchDesc.need
+      }else{
+        let need = await getNeedingProduct({desc:formatQuery.desc})
+        formatQuery['configs.need.description'] = need
+        searchDesc.desc = formatQuery.desc
+        searchDesc.need = need
+      }
     }
     delete formatQuery.desc
+    if(formatQuery.need){
+      formatQuery['configs.need.description'] = formatQuery.need
+    }
+    delete formatQuery.need
     // filter color
     if (formatQuery.colors) {
       const colors = formatQuery.colors.split(',').map((color) => new RegExp(color, "i"));
       formatQuery.colors = { $elemMatch: { color: { $in: colors } } };
+    }else{
       delete formatQuery.colors
+    }
+    if (formatQuery.hardDrive) {
+      formatQuery['configs.hardDrive.value'] = { $in: formatQuery.hardDrive.split(',') };
+      delete formatQuery.hardDrive
+    }else{
+      delete formatQuery.hardDrive
     }
     if (formatQuery.ram) {
       formatQuery['configs.ram.value'] = { $in: formatQuery.ram.split(',') };
@@ -225,6 +246,11 @@ const getAllProducts = async (req, res, next) => {
     else{
       delete formatQuery.brand
     }
+    if(formatQuery.brands){
+      formatQuery.brand = { $in: formatQuery.brands.split(',') };
+    }
+    delete formatQuery.brands
+
     if(mongoose.Types.ObjectId.isValid(formatQuery.series)){
       formatQuery.series = formatQuery.series
     }else{

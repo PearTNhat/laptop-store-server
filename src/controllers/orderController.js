@@ -164,9 +164,39 @@ const updateStatusOrderProduct = async (req, res, next) => {
         if (!status) {
             throw new Error('Missing input');
         }
+        let prevStatus;
+        const order = await Order.findOne({ _id: orderId, "products.product": productId });
+        const productNeedChanging = order.products.find(p => p.product.toString() === productId.toString());
+        prevStatus = productNeedChanging.status;
+        const product = await Product.findById(productId);
+        if(!order) throw new Error('Order not found');
         await Order.findOneAndUpdate({ _id: orderId, "products.product": productId }, {
-            $set: { "products.$.status": status }
+            $set: { "products.$.status": status  }
         });
+        if(prevStatus == -1  && status != -1){ // -1 , 0 1 // chuyển thành đặt hàng
+            product.colors = product.colors.map(color => {
+                if(color.color == productNeedChanging.color){
+                    color.quantity -= productNeedChanging.quantity;
+                    color.soldQuantity += productNeedChanging.quantity;
+                }
+                return color;
+            })
+            product.quantity = product.colors.reduce((acc, cur) => acc + cur.quantity, 0);
+            product.soldQuantity = product.colors.reduce((acc, cur) => acc + cur.soldQuantity, 0);
+            await product.save();
+        }
+        if(prevStatus != -1 && status == -1){ // chuyển thành hủy hàng
+            product.colors = product.colors.map(color => {
+                if(color.color == productNeedChanging.color){
+                    color.quantity += productNeedChanging.quantity;
+                    color.soldQuantity -= productNeedChanging.quantity;
+                }
+                return color;
+            })
+            product.quantity = product.colors.reduce((acc, cur) => acc + cur.quantity, 0);
+            product.soldQuantity = product.colors.reduce((acc, cur) => acc + cur.soldQuantity, 0);
+            await product.save();
+        }
         res.status(200).json({ success: true, message: "Update status order successfully" });
     } catch (error) {
         next(error);
@@ -177,7 +207,7 @@ const updateInfoOrder = async (req, res, next) => {
     try {
         const { name, phone, address } = req.body;
         const { orderId } = req.params;
-        console.log(orderId);
+  
         if (!name || !phone || !address || !orderId) {
             throw new Error('Missing input');
         }

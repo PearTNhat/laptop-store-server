@@ -169,7 +169,7 @@ const loginUser = async (req, res, next) => {
     });
     if (!user) throw new Error("Email or password are not exist");
     if(user.isBlocked) {
-      res.status(403).json({
+      return res.status(403).json({
         success: true,
         status:403,
         message: "Your account has been blocked",
