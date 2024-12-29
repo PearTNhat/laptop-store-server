@@ -1,10 +1,8 @@
 import express from "express";
-import { createOrder, deleteOrder, deleteProductOrder, getAllOrders, getOrdersUser, updateInfoOrder, updateStatusOrderProduct } from "~/controllers/orderController";
+import { callbackPayment, createOrder, deleteOrder, deleteProductOrder, getAllOrders, getOrdersUser, paymentOrder, transactionStatus, updateInfoOrder, updateStatusOrderProduct } from "~/controllers/orderController";
 import { isAdmin, verifyAccessToken } from "~/middleware/verifyToken";
 const Router = express.Router();
 
-Router.route("/")
-    .post([verifyAccessToken], createOrder)
 
 Router.route("/user").get(verifyAccessToken, getOrdersUser)
 Router.route("/get-all").get(verifyAccessToken, isAdmin, getAllOrders)
@@ -15,5 +13,7 @@ Router.route("/:orderId")
 Router.route("/:orderId/:productId")
     .put([verifyAccessToken, isAdmin], updateStatusOrderProduct)
     .delete([verifyAccessToken, isAdmin], deleteProductOrder)
-
+Router.route("/payment").post(verifyAccessToken,paymentOrder)
+Router.route("/payment/callback").post(callbackPayment)
+Router.route("/payment/:orderId").post(transactionStatus)
 export const orderRoute = Router;

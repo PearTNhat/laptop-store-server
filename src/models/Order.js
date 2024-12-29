@@ -26,6 +26,10 @@ var orderSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  payInfo:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Payment",
+  },
   orderBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",

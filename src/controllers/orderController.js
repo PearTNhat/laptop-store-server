@@ -1,43 +1,38 @@
+import axios from 'axios';
+import crypto from 'crypto';
 import Order from '~/models/Order';
 import User from '~/models/User';
 import Product from '~/models/Product';
-import mongoose from 'mongoose';
-
-const createOrder = async (req, res, next) => {
-    try {
-        const { products, total, address, phone, name } = req.body;
-        if (!products || !total) {
-            throw new Error('Missing input');
-        }
-        const myCarts = await User.findByIdAndUpdate(req.user._id, {
-            $set: {
-                carts: []
-            }
-        })
-
-        // kiem tra hang co trong cart khong
-
-
-        //caap nhat lai so luong san pham
-        for (let p of products) {
-            let currentProduct = await Product.findById(p.product._id);
-            currentProduct.colors = currentProduct.colors.map((color) => {
-                if (color.color.toLowerCase() === p.color.toLowerCase()) {
-                    color.quantity -= p.quantity;
-                    color.soldQuantity += p.quantity;
-                }
-                return color;
-            })
-            currentProduct.quantity = currentProduct.colors.reduce((acc, cur) => acc + cur.quantity, 0)
-            currentProduct.soldQuantity = currentProduct.colors.reduce((acc, cur) => acc + cur.soldQuantity, 0)
-            await currentProduct.save();
-        }
-        const order = new Order({ products, total, address, phone, name, orderBy: req.user._id });
-        await order.save();
-        res.status(201).json({ success: true, data: order });
-    } catch (error) {
-        next(error);
+import Payment from '~/models/Payment';
+const createOrder = async (data) => {
+    const { products, total, address, phone, name, payInfo, orderBy } = data
+    if (!products || !total) {
+        throw new Error('Missing input');
     }
+    //caap nhat lai so luong san pham
+    for (let p of products) {
+        let currentProduct = await Product.findById(p.product._id);
+        currentProduct.colors = currentProduct.colors.map((color) => {
+            if (color.color.toLowerCase() === p.color.toLowerCase()) {
+                color.quantity -= p.quantity;
+                color.soldQuantity += p.quantity;
+            }
+            return color;
+        })
+        currentProduct.quantity = currentProduct.colors.reduce((acc, cur) => acc + cur.quantity, 0)
+        currentProduct.soldQuantity = currentProduct.colors.reduce((acc, cur) => acc + cur.soldQuantity, 0)
+        await currentProduct.save();
+    }
+    const order = new Order({ products, total, address, phone, name, orderBy, payInfo });
+    await order.save();
+
+    // set cart = []
+    await User.findByIdAndUpdate(orderBy, {
+        $set: {
+            carts: []
+        }
+    })
+    return order;
 }
 const getOrdersUser = async (req, res, next) => {
     try {
@@ -169,13 +164,13 @@ const updateStatusOrderProduct = async (req, res, next) => {
         const productNeedChanging = order.products.find(p => p.product.toString() === productId.toString());
         prevStatus = productNeedChanging.status;
         const product = await Product.findById(productId);
-        if(!order) throw new Error('Order not found');
+        if (!order) throw new Error('Order not found');
         await Order.findOneAndUpdate({ _id: orderId, "products.product": productId }, {
-            $set: { "products.$.status": status  }
+            $set: { "products.$.status": status }
         });
-        if(prevStatus == -1  && status != -1){ // -1 , 0 1 // chuyển thành đặt hàng
+        if (prevStatus == -1 && status != -1) { // -1 , 0 1 // chuyển thành đặt hàng
             product.colors = product.colors.map(color => {
-                if(color.color == productNeedChanging.color){
+                if (color.color == productNeedChanging.color) {
                     color.quantity -= productNeedChanging.quantity;
                     color.soldQuantity += productNeedChanging.quantity;
                 }
@@ -185,9 +180,9 @@ const updateStatusOrderProduct = async (req, res, next) => {
             product.soldQuantity = product.colors.reduce((acc, cur) => acc + cur.soldQuantity, 0);
             await product.save();
         }
-        if(prevStatus != -1 && status == -1){ // chuyển thành hủy hàng
+        if (prevStatus != -1 && status == -1) { // chuyển thành hủy hàng
             product.colors = product.colors.map(color => {
-                if(color.color == productNeedChanging.color){
+                if (color.color == productNeedChanging.color) {
                     color.quantity += productNeedChanging.quantity;
                     color.soldQuantity -= productNeedChanging.quantity;
                 }
@@ -207,7 +202,7 @@ const updateInfoOrder = async (req, res, next) => {
     try {
         const { name, phone, address } = req.body;
         const { orderId } = req.params;
-  
+
         if (!name || !phone || !address || !orderId) {
             throw new Error('Missing input');
         }
@@ -246,4 +241,122 @@ const deleteProductOrder = async (req, res, next) => {
         next(error);
     }
 }
-export { createOrder, getOrdersUser, getAllOrders, updateStatusOrderProduct, updateInfoOrder, deleteOrder, deleteProductOrder };
+const paymentOrder = async (req, res, next) => {
+    try {
+        const { products, total, address, phone, name, payName } = req.body;
+        const accessKey = process.env.MOMO_ACCESS_KEY;
+        const secretKey = process.env.MOMO_SECRET_KEY;
+        const orderInfo = 'pay with MoMo';
+        const partnerCode = process.env.MOMO_PARTNER_CODE;
+        const redirectUrl = process.env.BASE_URL_FRONTEND;
+        const ipnUrl = `${process.env.PUBLIC_URL}/api/order/payment/callback`;
+        const requestType = "payWithMethod";
+        const amount = total;
+        const orderId = partnerCode + new Date().getTime();
+        const requestId = orderId;
+        const orderGroupId = '';
+        const autoCapture = true;
+        const lang = 'vi';
+
+        const extraData = Buffer.from(JSON.stringify({ products, total, address, phone, name, orderBy: req.user._id })).toString('base64')
+        const rawSignature = "accessKey=" + accessKey + "&amount=" + amount + "&extraData=" + extraData + "&ipnUrl=" + ipnUrl + "&orderId=" + orderId + "&orderInfo=" + orderInfo + "&partnerCode=" + partnerCode + "&redirectUrl=" + redirectUrl + "&requestId=" + requestId + "&requestType=" + requestType;
+        const signature = crypto.createHmac('sha256', secretKey)
+            .update(rawSignature)
+            .digest('hex');
+        //json object send to MoMo endpoint
+        const requestBody = JSON.stringify({
+            amount: total,
+            partnerCode: partnerCode,
+            partnerName: "Test",
+            storeId: "MomoTestStore",
+            requestId: requestId,
+            orderId: orderId,
+            orderInfo: orderInfo,
+            redirectUrl: redirectUrl,
+            ipnUrl: ipnUrl,
+            lang: lang,
+            requestType: requestType,
+            autoCapture: autoCapture,
+            extraData,
+            orderGroupId: orderGroupId,
+            signature: signature
+        });
+        const options = {
+            url: 'https://test-payment.momo.vn/v2/gateway/api/create',
+            method: 'POST',
+            data: requestBody,
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(requestBody)
+            }
+        }
+        const response = await axios(options);
+        res.status(200).json({ success: true, data: response.data });
+        // return res.redirect('http://localhost:5173');
+    } catch (error) {
+        next(error);
+    }
+
+}
+const callbackPayment = async (req, res, next) => {
+    try {
+        const data = req.body;
+        if (data.resultCode == '0') {
+            const decodeExtraData = JSON.parse(Buffer.from(data.extraData, 'base64').toString('utf-8'));
+            const payment = await Payment.create({
+                orderId: data.orderId,
+                payName: 'MoMo',
+                total: data.amount,
+                payType: data.payType
+            });
+            createOrder({ ...decodeExtraData, payInfo: payment._id });
+        }
+        return res.status(200).json({ message: 'success' });
+    } catch (error) {
+        next(error);
+    }
+}
+// ham này check stastus của giao dịch
+const transactionStatus = async (req, res, next) => {
+    try {
+        const { orderId } = req.params;
+        if (!orderId) {
+            throw new Error('Missing input');
+        }
+        const rawSignature = `accessKey=${process.env.MOMO_ACCESS_KEY}&orderId=${orderId}&partnerCode=${process.env.MOMO_PARTNER_CODE}&requestId=${orderId}`;
+        const signature = crypto.createHmac('sha256', process.env.MOMO_SECRET_KEY)
+            .update(rawSignature)
+            .digest('hex')
+        const requestBody = JSON.stringify({
+            requestId: orderId,
+            orderId: orderId,
+            partnerCode: process.env.MOMO_PARTNER_CODE,
+            lang: 'vi',
+            signature
+        });
+        const options = {
+            url: 'https://test-payment.momo.vn/v2/gateway/api/query',
+            method: 'POST',
+            data: requestBody,
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        }
+        const response = await axios(options);
+        res.status(200).json({ success: true, data: response.data });
+    } catch (error) {
+        next(error);
+    }
+}
+export {
+    createOrder,
+    getOrdersUser,
+    getAllOrders,
+    updateStatusOrderProduct,
+    updateInfoOrder,
+    deleteOrder,
+    deleteProductOrder,
+    paymentOrder,
+    callbackPayment,
+    transactionStatus
+};
