@@ -41,3 +41,9 @@ export const extractPublicId = (url) => {
   const publicId = filename.split('.')[0];
   return publicId;
 };
+export const  getPublicId = (url) => {
+  const parts = url.split('/');
+  const fileName = parts.pop(); // Lấy phần cuối cùng (file name)
+  const folderPath = parts.slice(7).join('/'); // Bỏ domain và thư mục mặc định của Cloudinary
+  return `${folderPath}/${fileName.split('.')[0]}`; // Bỏ phần mở rộng file
+}

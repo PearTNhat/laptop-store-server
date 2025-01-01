@@ -1,17 +1,21 @@
-import mongoose from "mongoose";
+import mongoose, { get } from "mongoose";
 import slugify from "slugify";
-import { cloudinary,
-   PRODUCT_FOLDER, uploadToCloudinary } from "~/configs/cloudinary";
+import {
+  cloudinary,
+  PRODUCT_FOLDER, uploadToCloudinary,
+  uploadUrlToCloudinary
+} from "~/configs/cloudinary";
 import Product from "~/models/Product";
 import { getNeedingProduct } from "~/utils/api";
+import { getPublicId } from "~/utils/helper";
 const searchDesc = { // cái này mới làm 1 user nên nó sẽ lưu lại cái desc cũ và need cũ, nhiều user sẻ lưu id và check
-  desc:"",
-  need:""
+  desc: "",
+  need: ""
 }
 const createProduct = async (req, res, next) => {
   try {
-    const { title, description, price,features,brand,series, discountPrice,configs} = JSON.parse(req.body.document);
-    if (!(title && description && price  && discountPrice && features)) throw new Error("Missing required fields");
+    const { title, description, price, features, brand, series, discountPrice, configs } = JSON.parse(req.body.document);
+    if (!(title && description && price && discountPrice && features)) throw new Error("Missing required fields");
     const slug = slugify(title, {
       lower: true,
       strict: true,
@@ -43,7 +47,7 @@ const createProduct = async (req, res, next) => {
 const createProductColor = async (req, res, next) => {
   try {
     const { slug } = req.params;
-    const { color, quantity } = JSON.parse(req.body.document);
+    const { color, quantity, images } = JSON.parse(req.body.document);
     const parsedQuantity = parseInt(quantity, 10);
     if (isNaN(parsedQuantity) || parsedQuantity < 0) {
       return res.status(400).json({ error: "Quantity must be a valid non-negative number." });
@@ -55,16 +59,16 @@ const createProductColor = async (req, res, next) => {
     const isColorExist = product.colors.find((item) => item.color.toLowerCase() === color.toLowerCase());
     if (isColorExist) throw new Error("Color already exist");
     const pImage = await uploadToCloudinary(req.files?.primaryImage[0].buffer, PRODUCT_FOLDER)
-    let images = []
-    for (let image of req.files?.images) {
-      const img = await uploadToCloudinary(image.buffer, PRODUCT_FOLDER)
-      images.push({ url: img.url, public_id: img.public_id })
+    let newImages = []
+    for (let image of images) {
+      const img = await uploadToCloudinary(image, PRODUCT_FOLDER)
+      newImages.push({ url: img.url, public_id: img.public_id })
     }
     product.colors.push({
       color,
-      quantity:parsedQuantity,
-      primaryImage: { url: pImage.url, public_id: pImage.public_id }, images,
-      images
+      quantity: parsedQuantity,
+      primaryImage: { url: pImage.url, public_id: pImage.public_id },
+      images: newImages
     });
     product.quantity += parsedQuantity;
     await product.save();
@@ -79,8 +83,8 @@ const createProductColor = async (req, res, next) => {
 const updateProduct = async (req, res, next) => {
   try {
     const { slug } = req.params;
-    const { title, description, price, brand, series,discountPrice,  } = JSON.parse(req.body.document);
-    if (!(title && description && price && brand  && discountPrice))
+    const { title, description, price, brand, series, discountPrice, } = JSON.parse(req.body.document);
+    if (!(title && description && price && brand && discountPrice))
       throw new Error("Missing required fields");
     const product = await Product.findOne({ slug })
     if (!product) throw new Error("Product not found")
@@ -111,7 +115,7 @@ const updateProductColor = async (req, res, next) => {
   try {
     const { slug } = req.params;
     const { colorId } = req.query
-    const { color, quantity } = JSON.parse(req.body.document);
+    let { color, quantity, images } = JSON.parse(req.body.document)
     if (!(color && quantity))
       throw new Error("Missing required fields");
     const parsedQuantity = parseInt(quantity, 10);
@@ -120,22 +124,29 @@ const updateProductColor = async (req, res, next) => {
     const currentColor = product.colors.find(item => item._id.toString() === colorId)
     if (!product) throw new Error("Product not found")
     let img = null
-    let images = []
     if (req.files?.primaryImage) {
       img = await uploadToCloudinary(req.files.primaryImage[0].buffer, PRODUCT_FOLDER)
       if (currentColor.primaryImage && currentColor.primaryImage.public_id) {
         await cloudinary.uploader.destroy(currentColor.primaryImage.public_id);
       }
     }
-    if (req.files?.images) {
-      for (let image of currentColor.images) {
-        if ( image.public_id) {
-          await cloudinary.uploader.destroy(image.public_id);
+    
+    if (images.length > 0) {
+      for (let img of currentColor.images) {
+        if (!images.includes(img.url)) {
+          if (img.public_id) {
+            cloudinary.uploader.destroy(img.public_id);
+          }
         }
       }
-      for (let image of req.files?.images) {
-        const img = await uploadToCloudinary(image.buffer, PRODUCT_FOLDER)
-        images.push({ url: img.url, public_id: img.public_id })
+      for (let i = 0; i< images.length; i++) {
+        let img 
+        if(images[i].includes('data')) {
+          img = await uploadToCloudinary(images[i], PRODUCT_FOLDER)
+          images[i]={ url: img.url, public_id: img.public_id }
+        }else{
+          images[i]={ url: images[i], public_id: getPublicId(images[i]) }
+        }
       }
     }
     product.colors = product.colors.map((item) => {
@@ -206,18 +217,18 @@ const getAllProducts = async (req, res, next) => {
     queryStr = queryStr.replace(/\b(gte|gt|lte|lt|ne)\b/g, (match) => `$${match}`);
     let formatQuery = JSON.parse(queryStr);
     // need
-    if(formatQuery.desc){
-      if(formatQuery.desc.toLowerCase() === searchDesc.desc.toLowerCase()){
+    if (formatQuery.desc) {
+      if (formatQuery.desc.toLowerCase() === searchDesc.desc.toLowerCase()) {
         formatQuery['configs.need.description'] = searchDesc.need
-      }else{
-        let need = await getNeedingProduct({desc:formatQuery.desc})
+      } else {
+        let need = await getNeedingProduct({ desc: formatQuery.desc })
         formatQuery['configs.need.description'] = need
         searchDesc.desc = formatQuery.desc
         searchDesc.need = need
       }
     }
     delete formatQuery.desc
-    if(formatQuery.need){
+    if (formatQuery.need) {
       formatQuery['configs.need.description'] = formatQuery.need
     }
     delete formatQuery.need
@@ -225,52 +236,52 @@ const getAllProducts = async (req, res, next) => {
     if (formatQuery.colors) {
       const colors = formatQuery.colors.split(',').map((color) => new RegExp(color, "i"));
       formatQuery.colors = { $elemMatch: { color: { $in: colors } } };
-    }else{
+    } else {
       delete formatQuery.colors
     }
     if (formatQuery.hardDrive) {
       formatQuery['configs.hardDrive.value'] = { $in: formatQuery.hardDrive.split(',') };
       delete formatQuery.hardDrive
-    }else{
+    } else {
       delete formatQuery.hardDrive
     }
     if (formatQuery.ram) {
       formatQuery['configs.ram.value'] = { $in: formatQuery.ram.split(',') };
       delete formatQuery.ram
-    }else{
+    } else {
       delete formatQuery.ram
     }
-    if(formatQuery.brand){
+    if (formatQuery.brand) {
       formatQuery.brand = { $regex: formatQuery.brand, $options: "i" };
     }
-    else{
+    else {
       delete formatQuery.brand
     }
-    if(formatQuery.brands){
+    if (formatQuery.brands) {
       formatQuery.brand = { $in: formatQuery.brands.split(',') };
     }
     delete formatQuery.brands
 
-    if(mongoose.Types.ObjectId.isValid(formatQuery.series)){
+    if (mongoose.Types.ObjectId.isValid(formatQuery.series)) {
       formatQuery.series = formatQuery.series
-    }else{
+    } else {
       delete formatQuery.series
     }
     ////////////////////////////
     //k show nhung sp k có color trong client
-    formatQuery.colors ={...formatQuery?.colors ,$exists: true, $ne: [] };
+    formatQuery.colors = { ...formatQuery?.colors, $exists: true, $ne: [] };
     //co show nhung sp k có color trong admin
-    if(formatQuery.showAll){
+    if (formatQuery.showAll) {
       delete formatQuery.colors.$exists
       delete formatQuery.colors.$ne
-      if(Object.keys(formatQuery.colors).length === 0)  delete formatQuery.colors
+      if (Object.keys(formatQuery.colors).length === 0) delete formatQuery.colors
       delete formatQuery.showAll
     }
     ///
     // filter title
     if (formatQuery.title) {
       formatQuery.title = { $regex: req.query.title, $options: "i" };
-    }else{
+    } else {
       delete formatQuery.title
     }
     let queryCommand = Product.find(formatQuery);
@@ -295,7 +306,7 @@ const getAllProducts = async (req, res, next) => {
       .skip(skip)
       .limit(limit)
       .populate([{
-        path:'series',
+        path: 'series',
       }])
     const [totalDocuments, products] = await Promise.all([
       Product.find(formatQuery).countDocuments(),
@@ -318,25 +329,41 @@ const deleteProduct = async (req, res, next) => {
     if (!mongoose.Types.ObjectId.isValid(pId)) {
       return res.status(400).json({ error: 'Invalid ObjectId' });
     }
-    await Product.deleteOne({ _id: pId});
+    const product = await Product.findById(pId);
+    if (!product) {
+      throw new Error("Product not found");
+    }
+    await Product.deleteOne({ _id: pId });
+    if (product.primaryImage.public_id) {
+      cloudinary.uploader.destroy(product.primaryImage.public_id);
+    }
     res.status(200).json({
       success: true,
       message: "Delete product successfully",
     })
-  }catch(error){
+  } catch (error) {
     next(error);
   }
 }
 const deleteProductColor = async (req, res, next) => {
   try {
-    const { cId,pId } = req.params
-    const product = await Product.findOne({ _id: pId});
+    const { cId, pId } = req.params
+    const product = await Product.findOne({ _id: pId });
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
-    let colorQuantity=0;
+    let colorQuantity = 0;
     product.colors = product.colors.filter((item) => {
-      if(item._id.toString() === cId){
+      if (item._id.toString() === cId) {
+        if (item.primaryImage.public_id) {
+          // k cần chờ await vì nó chỉ cần gửi request lên cloudinary xóa
+          cloudinary.uploader.destroy(item.primaryImage.public_id);
+        }
+        for (let image of item.images) {
+          if (image.public_id) {
+            cloudinary.uploader.destroy(image.public_id);
+          }
+        }
         colorQuantity = item.quantity
       }
       return item._id.toString() !== cId
@@ -347,16 +374,17 @@ const deleteProductColor = async (req, res, next) => {
       success: true,
       message: "Delete product color successfully",
     })
-  }catch(error){
+  } catch (error) {
     next(error);
   }
 }
-export { createProduct,
-   createProductColor,
-   getProduct,
-   getAllProducts,
-   updateProduct,
-   updateProductColor ,
-   deleteProduct,
-   deleteProductColor
-  };
+export {
+  createProduct,
+  createProductColor,
+  getProduct,
+  getAllProducts,
+  updateProduct,
+  updateProductColor,
+  deleteProduct,
+  deleteProductColor
+};

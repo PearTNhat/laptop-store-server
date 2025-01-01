@@ -13,15 +13,6 @@ const PRODUCT_FOLDER = "DigitalStore/Products";
 const USER_FOLDER = "DigitalStore/Users";
 const BLOG_FOLDER = "DigitalStore/Blogs";
 const typeImg = ["jpg", "png", "jpeg"];
-// const storage = ({ folder }) => {
-//   return new CloudinaryStorage({
-//     cloudinary,
-//     allowedFormats: typeImg,
-//     params: {
-//       folder: `DigitalStore/${folder}`,
-//     },
-//   });
-// };
 const storage = multer.memoryStorage(); // Use memory storage for simplicity
 
 const upload = multer({
@@ -44,5 +35,4 @@ const uploadToCloudinary = (buffer, folder) => {
     stream.end(buffer);
   });
 };
-
 export { uploadToCloudinary, PRODUCT_FOLDER,USER_FOLDER,BLOG_FOLDER,cloudinary,upload };
