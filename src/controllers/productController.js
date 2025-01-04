@@ -386,5 +386,5 @@ export {
   updateProduct,
   updateProductColor,
   deleteProduct,
-  deleteProductColor
+  deleteProductColor,
 };
