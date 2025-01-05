@@ -10,13 +10,13 @@ const corsOptions = {
   credentials: true,
   optionSuccessStatus: 200,
 }
-
+const port = process.env.PORT || 5000;
 app.use(cors(corsOptions));
 connectDB();
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }))
 initRoutes(app);
-app.listen(process.env.PORT, () => {
-  console.log(`Example app listening on port ${process.env.PORT}`)
+app.listen(port, () => {
+  console.log(`Example app listening on port ${port}`)
 })
