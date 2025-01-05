@@ -342,8 +342,21 @@ const transactionStatus = async (req, res, next) => {
                 'Content-Type': 'application/json',
             }
         }
-        const response = await axios(options);
-        res.status(200).json({ success: true, data: response.data });
+        const {data} = await axios(options);
+        if (data.resultCode == '0') {
+            const existPayment = await Payment.findOne({ orderId: data.orderId });
+            if(!existPayment){
+                const decodeExtraData = JSON.parse(Buffer.from(data.extraData, 'base64').toString('utf-8'));
+                const payment = await Payment.create({
+                    orderId: data.orderId,
+                    payName: 'MoMo',
+                    total: data.amount,
+                    payType: data.payType
+                });
+                createOrder({ ...decodeExtraData, payInfo: payment._id });
+            }
+        }
+        res.status(200).json({ success: true, data });
     } catch (error) {
         next(error);
     }
