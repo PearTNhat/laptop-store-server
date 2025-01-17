@@ -22,15 +22,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }))
 initRoutes(app);
 
-const ss = app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
-const io = new Server(ss, {
+const io = new Server(server, {
   pingTimeout: 60000,
-  cors: {
-    origin: "*",
-    credentials: true,
-  },
+  cors:corsOptions
 
 });
 io.on('connection', (socket) => {

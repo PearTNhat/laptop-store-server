@@ -1,7 +1,7 @@
 export const errorResponseHandler = (err, req, res, next) => {
     // nếu có thêm tham số err (4 tham số) thì  khi nào dùng next(err) thì nó sẽ vào 4 tham số
     // next() là chạy vào middelware tiếp theo
-    console.log(err.stack);
+    // console.log(err.stack);
     const statusCode = err.statusCode || 400;
     return res.status(statusCode).json({
       message: err.message,
