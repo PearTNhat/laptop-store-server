@@ -250,7 +250,7 @@ const paymentOrder = async (req, res, next) => {
         const partnerCode = process.env.MOMO_PARTNER_CODE;
         const redirectUrl = process.env.BASE_URL_FRONTEND;
         const ipnUrl = `${process.env.PUBLIC_URL}/api/order/payment/callback`;
-        const requestType = "payWithMethod";
+        const requestType ="captureWallet";//"captureWallet";
         const amount = total;
         const orderId = partnerCode + new Date().getTime();
         const requestId = orderId;
@@ -268,7 +268,7 @@ const paymentOrder = async (req, res, next) => {
             amount: total,
             partnerCode: partnerCode,
             partnerName: "Test",
-            storeId: "MomoTestStore",
+            storeId: process.env.MOMO_STORE_ID,//"MomoTestStore",
             requestId: requestId,
             orderId: orderId,
             orderInfo: orderInfo,
@@ -282,11 +282,11 @@ const paymentOrder = async (req, res, next) => {
             signature: signature
         });
         const options = {
-            url: 'https://test-payment.momo.vn/v2/gateway/api/create',
+            url: 'https://payment.momo.vn/v2/gateway/api/create',
             method: 'POST',
             data: requestBody,
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json; charset=UTF-8',
                 'Content-Length': Buffer.byteLength(requestBody)
             }
         }
