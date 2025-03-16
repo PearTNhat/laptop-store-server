@@ -36,6 +36,5 @@ io.on('connection', (socket) => {
 });
   // Khi client ngắt kết nối
   socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
   });
 });

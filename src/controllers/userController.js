@@ -15,21 +15,21 @@ const register = async (req, res, next) => {
     if (!email || !firstName || !lastName || !password) {
       throw new Error("Missing inputs");
     }
-    let [user,isUserExist] = await Promise.all([await User.findOne({ email }), await User.findOne({'email':{ $regex: `${email}&.*` }})]); 
+    let [user, isUserExist] = await Promise.all([await User.findOne({ email }), await User.findOne({ 'email': { $regex: `${email}&.*` } })]);
     if (user) {
       throw new Error("Email already exists");
     }
-   const OTP = generateOTP();
-   const emailEdited =email+'&'+OTP
-   if(isUserExist){
-    await User.findOneAndUpdate({'email':{ $regex: `${email}&.*` }},{ email:emailEdited ,firstName, lastName, password });
-   }else{
-    await User.create({ email:emailEdited ,firstName, lastName, password });
-   }
-   // xoa user sau 45s không đăng ký
+    const OTP = generateOTP();
+    const emailEdited = email + '&' + OTP
+    if (isUserExist) {
+      await User.findOneAndUpdate({ 'email': { $regex: `${email}&.*` } }, { email: emailEdited, firstName, lastName, password });
+    } else {
+      await User.create({ email: emailEdited, firstName, lastName, password });
+    }
+    // xoa user sau 45s không đăng ký
     setTimeout(async () => {
       await User.findOneAndDelete({ email: emailEdited });
-    }, 5*60 * 1000);
+    }, 5 * 60 * 1000);
     const html = `
     <h1> Verify your account </h1>
       <p>
@@ -53,8 +53,8 @@ const register = async (req, res, next) => {
 };
 const finalRegister = async (req, res, next) => {
   try {
-    const { OTP,email } = req.body;
-    const user = await User.findOne({ email: email+'&'+OTP });
+    const { OTP, email } = req.body;
+    const user = await User.findOne({ email: email + '&' + OTP });
     if (!user) {
       throw new Error("OTP is not correct");
     }
@@ -77,10 +77,10 @@ const loginUser = async (req, res, next) => {
       select: 'title price discountPrice colors',
     });
     if (!user) throw new Error("Email or password are not exist");
-    if(user.isBlocked) {
+    if (user.isBlocked) {
       return res.status(403).json({
         success: true,
-        status:403,
+        status: 403,
         message: "Your account has been blocked",
       });
     }
@@ -89,7 +89,7 @@ const loginUser = async (req, res, next) => {
       await User.findByIdAndUpdate(user._id, { refreshToken: newRefreshToken });
       res.cookie("refreshToken", newRefreshToken, {
         httpOnly: true,
-        maxAge: 7*60*60* 1000, // 7 d
+        maxAge: 7 * 60 * 60 * 1000, // 7 d
       });
       const accessToken = generateAccessToken({
         _id: user._id,
@@ -192,7 +192,7 @@ const getCurrentUser = async (req, res, next) => {
     ).populate([{
       path: 'carts.product',
       select: 'title price discountPrice colors',
-    },{
+    }, {
       path: 'wishlist.product'
     }]);
     res.status(200).json({
@@ -205,58 +205,58 @@ const getCurrentUser = async (req, res, next) => {
 };
 const getAllUsers = async (req, res, next) => {
   try {
-     //1A filter
-     const queryObj = { ...req.query };
-     const excludeFields = ["page", "sort", "limit", "fields"];
-     excludeFields.forEach((el) => delete queryObj[el]);
- 
-     //1B Advanced filtering
-     // price[gte]=123 & price[lte]=123 => {price: {gte: 123, lte: 123}}
-     let queryStr = JSON.stringify(queryObj);
-     //{price: {gte: 1000}, rating: {gt: 4.5}} => {price: {$gte: 1000}, rating: {$gt: 4.5}}
-     queryStr = queryStr.replace(/\b(gte|gt|lte|lt|ne)\b/g, (match) => `$${match}`);
-     let formatQuery = JSON.parse(queryStr);
+    //1A filter
+    const queryObj = { ...req.query };
+    const excludeFields = ["page", "sort", "limit", "fields"];
+    excludeFields.forEach((el) => delete queryObj[el]);
 
-     // filter title
-     if (req.query.search) {
+    //1B Advanced filtering
+    // price[gte]=123 & price[lte]=123 => {price: {gte: 123, lte: 123}}
+    let queryStr = JSON.stringify(queryObj);
+    //{price: {gte: 1000}, rating: {gt: 4.5}} => {price: {$gte: 1000}, rating: {$gt: 4.5}}
+    queryStr = queryStr.replace(/\b(gte|gt|lte|lt|ne)\b/g, (match) => `$${match}`);
+    let formatQuery = JSON.parse(queryStr);
+
+    // filter title
+    if (req.query.search) {
       const searchRegex = new RegExp(req.query.search, 'i');
       delete formatQuery.search
-       formatQuery['$or'] = [
+      formatQuery['$or'] = [
         { firstName: { $regex: searchRegex } },
         { lastName: { $regex: searchRegex } },
         { email: { $regex: searchRegex } },
         { $expr: { $regexMatch: { input: { $concat: ['$firstName', ' ', '$lastName'] }, regex: searchRegex } } }
       ]
-     }else{
+    } else {
       delete formatQuery.search
-     }
-     let queryCommand = User.find(formatQuery);
- 
-     // select fields
-     if (req.query.fields) {
-       const fields = req.query.fields.split(",").join(" ");
-       queryCommand = queryCommand.select(fields);
-     } else {
-       queryCommand = queryCommand.select("-__v");
-     }
-     // sort
-     if (req.query.sort) {
-       const sortBy = req.query.sort.split(",").join(" ");
-       queryCommand = queryCommand.sort(sortBy);
-     }
-     // dấu cộng để conver str to number
-     const page = +req.query.page || 1;
-     const limit = +req.query.limit || 10;
-     const skip = (page - 1) * limit;
-     queryCommand = queryCommand
-       .skip(skip)
-       .limit(limit)
-       .populate()
-     const [totalDocuments, users] = await Promise.all([
-       User.find(formatQuery).countDocuments(),
-       queryCommand.skip(skip).limit(limit),
-     ]);
-     res.status(200).json({
+    }
+    let queryCommand = User.find(formatQuery);
+
+    // select fields
+    if (req.query.fields) {
+      const fields = req.query.fields.split(",").join(" ");
+      queryCommand = queryCommand.select(fields);
+    } else {
+      queryCommand = queryCommand.select("-__v");
+    }
+    // sort
+    if (req.query.sort) {
+      const sortBy = req.query.sort.split(",").join(" ");
+      queryCommand = queryCommand.sort(sortBy);
+    }
+    // dấu cộng để conver str to number
+    const page = +req.query.page || 1;
+    const limit = +req.query.limit || 10;
+    const skip = (page - 1) * limit;
+    queryCommand = queryCommand
+      .skip(skip)
+      .limit(limit)
+      .populate()
+    const [totalDocuments, users] = await Promise.all([
+      User.find(formatQuery).countDocuments(),
+      queryCommand.skip(skip).limit(limit),
+    ]);
+    res.status(200).json({
       success: true,
       counts: totalDocuments,
       data: users,
@@ -288,18 +288,18 @@ const getAllUsers = async (req, res, next) => {
 // };
 const updateCurrentUser = async (req, res, next) => {
   try {
-    const { firstName, lastName, phone, email,address} = JSON.parse(req.body.document);
+    const { firstName, lastName, phone, email, address } = JSON.parse(req.body.document);
     if (!req.user?._id || !(firstName && lastName && phone && email))
       throw new Error("Missing inputs");
     let img;
-   
+
     let user = await User.findById(
       req.user._id,
     ).select(excludeFields)
     if (req.file) {
-      img = await uploadToCloudinary(req.file.buffer,USER_FOLDER);
+      img = await uploadToCloudinary(req.file.buffer, USER_FOLDER);
       img = { url: img.url, public_id: img.public_id };
-      if(user.avatar?.public_id){
+      if (user.avatar?.public_id) {
         await cloudinary.uploader.destroy(user.avatar.public_id);
       }
     }
@@ -368,7 +368,7 @@ const addAddress = async (req, res, next) => {
 };
 const updateCart = async (req, res, next) => {
   try {
-    const { product, quantity=1, color } = req.body;
+    const { product, quantity = 1, color } = req.body;
     if (!product || !color) throw new Error("Missing inputs");
     const user = await User.findById({ _id: req.user._id }).select("carts");
     if (!user) throw new Error("User not found");
@@ -418,9 +418,9 @@ const updateCart = async (req, res, next) => {
 };
 const removeCart = async (req, res, next) => {
   try {
-    const { product,color } = req.body;
+    const { product, color } = req.body;
     if (!product || !color) throw new Error("Missing inputs");
-    const  data = await User.findByIdAndUpdate(
+    const data = await User.findByIdAndUpdate(
       req.user._id,
       {
         $pull: {
@@ -432,7 +432,7 @@ const removeCart = async (req, res, next) => {
       },
       { new: true }
     ).select("carts");
-    res.status(200).json({ success: true, data:data });
+    res.status(200).json({ success: true, data: data });
   } catch (error) {
     next(error);
   }
@@ -446,8 +446,7 @@ const updateWishlist = async (req, res, next) => {
     const alreadyHaveProduct = user.wishlist?.some(
       (item) => item.product.toString() === product
     );
-    console.log(alreadyHaveProduct)
-    if(alreadyHaveProduct){
+    if (alreadyHaveProduct) {
       await User.findByIdAndUpdate(
         req.user._id,
         {
@@ -459,7 +458,7 @@ const updateWishlist = async (req, res, next) => {
         },
         { new: true }
       );
-    }else{
+    } else {
       await User.findByIdAndUpdate(
         req.user._id,
         {
@@ -479,12 +478,12 @@ const updateWishlist = async (req, res, next) => {
 }
 const updateRole = async (req, res, next) => {
   try {
-    const { role,userId } = req.body;
+    const { role, userId } = req.body;
     if (!role || !userId) throw new Error("Missing role");
     if (role !== "user" && role !== "admin") {
       throw new Error("Role must be user or admin");
     }
-    if(req.user.role !== 'admin') throw new Error("You are not admin");
+    if (req.user.role !== 'admin') throw new Error("You are not admin");
     await User.findByIdAndUpdate(
       userId,
       {
@@ -494,7 +493,7 @@ const updateRole = async (req, res, next) => {
     );
     res.status(200).json({
       success: true,
-      message:'Update role successfully',
+      message: 'Update role successfully',
     });
   } catch (error) {
     next(error);
@@ -502,10 +501,10 @@ const updateRole = async (req, res, next) => {
 };
 const updateBlock = async (req, res, next) => {
   try {
-    const { isBlocked,userId } = req.body;
-    if ( !userId) throw new Error("Missing input");
-    if(isBlocked !== true && isBlocked !== false) throw new Error("Blocking must be true or false");
-    if(req.user.role !== 'admin') throw new Error("You are not admin");
+    const { isBlocked, userId } = req.body;
+    if (!userId) throw new Error("Missing input");
+    if (isBlocked !== true && isBlocked !== false) throw new Error("Blocking must be true or false");
+    if (req.user.role !== 'admin') throw new Error("You are not admin");
     await User.findByIdAndUpdate(
       userId,
       {
@@ -515,7 +514,7 @@ const updateBlock = async (req, res, next) => {
     );
     res.status(200).json({
       success: true,
-      message:'Update block successfully',
+      message: 'Update block successfully',
     });
   } catch (error) {
     next(error);

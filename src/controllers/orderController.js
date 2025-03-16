@@ -244,13 +244,16 @@ const deleteProductOrder = async (req, res, next) => {
 const paymentOrder = async (req, res, next) => {
     try {
         const { products, total, address, phone, name, payName } = req.body;
+        if (products.length === 0) {
+            return res.status(400).json({ success: false, message: 'Products is empty' });
+        }
         const accessKey = process.env.MOMO_ACCESS_KEY;
         const secretKey = process.env.MOMO_SECRET_KEY;
         const orderInfo = 'pay with MoMo';
         const partnerCode = process.env.MOMO_PARTNER_CODE;
         const redirectUrl = process.env.BASE_URL_FRONTEND;
         const ipnUrl = `${process.env.PUBLIC_URL}/api/order/payment/callback`;
-        const requestType ="captureWallet";//"captureWallet";
+        const requestType = "captureWallet";//"captureWallet";
         const amount = total;
         const orderId = partnerCode + new Date().getTime();
         const requestId = orderId;
@@ -282,7 +285,7 @@ const paymentOrder = async (req, res, next) => {
             signature: signature
         });
         const options = {
-            url: 'https://payment.momo.vn/v2/gateway/api/create',
+            url: process.env.MOMO_URL_CREATE,
             method: 'POST',
             data: requestBody,
             headers: {
@@ -335,17 +338,17 @@ const transactionStatus = async (req, res, next) => {
             signature
         });
         const options = {
-            url: 'https://test-payment.momo.vn/v2/gateway/api/query',
+            url: process.env.MOMO_URL_QUERY,
             method: 'POST',
             data: requestBody,
             headers: {
                 'Content-Type': 'application/json',
             }
         }
-        const {data} = await axios(options);
+        const { data } = await axios(options);
         if (data.resultCode == '0') {
             const existPayment = await Payment.findOne({ orderId: data.orderId });
-            if(!existPayment){
+            if (!existPayment) {
                 const decodeExtraData = JSON.parse(Buffer.from(data.extraData, 'base64').toString('utf-8'));
                 const payment = await Payment.create({
                     orderId: data.orderId,

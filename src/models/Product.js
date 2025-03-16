@@ -17,7 +17,7 @@ var productSchema = new mongoose.Schema({
         type: Array,
         // required: true,
     },
-    features:{
+    features: {
         type: Array,
         required: true,
     },
@@ -25,6 +25,7 @@ var productSchema = new mongoose.Schema({
         type: String,
         ref: 'Brand',
     },
+    // brand: String,
     price: {
         type: Number,
     },
@@ -152,7 +153,7 @@ var productSchema = new mongoose.Schema({
                 default: 4
             }
         },
-        refreshRate:{
+        refreshRate: {
             description: String,
             name: {
                 type: String,
@@ -163,7 +164,7 @@ var productSchema = new mongoose.Schema({
                 default: 5
             }
         },
-        panel:{
+        panel: {
             description: String,
             name: {
                 type: String,
@@ -174,7 +175,7 @@ var productSchema = new mongoose.Schema({
                 default: 6
             }
         },
-        screenTechnology:{
+        screenTechnology: {
             description: String,
             name: {
                 type: String,
@@ -208,7 +209,7 @@ var productSchema = new mongoose.Schema({
                 default: 8
             }
         },
-        audioTechnology:{
+        audioTechnology: {
             description: String,
             name: {
                 type: String,
@@ -241,7 +242,7 @@ var productSchema = new mongoose.Schema({
                 default: 10
             }
         },
-        bluetooth:{
+        bluetooth: {
             description: String,
             name: {
                 type: String,
@@ -252,7 +253,7 @@ var productSchema = new mongoose.Schema({
                 default: 11
             }
         },
-        material:{
+        material: {
             description: String,
             name: {
                 type: String,
@@ -389,12 +390,12 @@ var productSchema = new mongoose.Schema({
                 default: 23
             }
         },
-       
-       
+
+
     },
     totalRating: {
         type: Number,
-       // default: 0,
+        // default: 0,
     },
 }, {
     timestamps: true,

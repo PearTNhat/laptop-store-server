@@ -14,9 +14,7 @@ const verifyAccessToken = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    // if(error instanceof jwt.JsonWebTokenError){
-    //     throw new Error("token expired");
-    // }
+    console.log(error);
     next(error);
   }
 };
