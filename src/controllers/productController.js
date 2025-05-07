@@ -48,6 +48,7 @@ const createProductColor = async (req, res, next) => {
   try {
     const { slug } = req.params;
     const { color, quantity, images } = JSON.parse(req.body.document);
+
     const parsedQuantity = parseInt(quantity, 10);
     if (isNaN(parsedQuantity) || parsedQuantity < 0) {
       return res.status(400).json({ error: "Quantity must be a valid non-negative number." });
@@ -130,7 +131,7 @@ const updateProductColor = async (req, res, next) => {
         await cloudinary.uploader.destroy(currentColor.primaryImage.public_id);
       }
     }
-    
+
     if (images.length > 0) {
       for (let img of currentColor.images) {
         if (!images.includes(img.url)) {
@@ -139,13 +140,13 @@ const updateProductColor = async (req, res, next) => {
           }
         }
       }
-      for (let i = 0; i< images.length; i++) {
-        let img 
-        if(images[i].includes('data')) {
+      for (let i = 0; i < images.length; i++) {
+        let img
+        if (images[i].includes('data')) {
           img = await uploadToCloudinary(images[i], PRODUCT_FOLDER)
-          images[i]={ url: img.url, public_id: img.public_id }
-        }else{
-          images[i]={ url: images[i], public_id: getPublicId(images[i]) }
+          images[i] = { url: img.url, public_id: img.public_id }
+        } else {
+          images[i] = { url: images[i], public_id: getPublicId(images[i]) }
         }
       }
     }

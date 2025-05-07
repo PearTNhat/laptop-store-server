@@ -270,7 +270,6 @@ const paymentOrder = async (req, res, next) => {
         const requestBody = JSON.stringify({
             amount: total,
             partnerCode: partnerCode,
-            partnerName: "Test",
             storeId: process.env.MOMO_STORE_ID,//"MomoTestStore",
             requestId: requestId,
             orderId: orderId,
@@ -290,7 +289,7 @@ const paymentOrder = async (req, res, next) => {
             data: requestBody,
             headers: {
                 'Content-Type': 'application/json; charset=UTF-8',
-                'Content-Length': Buffer.byteLength(requestBody)
+                // 'Content-Length': Buffer.byteLength(requestBody)
             }
         }
         const response = await axios(options);

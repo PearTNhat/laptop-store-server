@@ -266,26 +266,6 @@ const getAllUsers = async (req, res, next) => {
   }
 }
 
-// const uploadAvatar = async (req, res, next) => {
-//   try {
-//     const user = await User.findById({ _id: req.user._id });
-//     const upload = uploadUserCloud.single("image");
-//     if (!user) throw new Error("User not found");
-//     if (user.avatar?.public_id !== "public_id") {
-//       await cloudinary.uploader.destroy(user.avatar.public_id);
-//     }
-//     upload(req, res, async (err) => {
-//       if (err) throw new Error(err);
-//       if (!req.file) throw new Error("Missing image");
-//       user.avatar.public_id = req.file.filename;
-//       user.avatar.url = req.file.path;
-//       await user.save();
-//     });
-//     res.status(200).json({ success: true, data: user });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
 const updateCurrentUser = async (req, res, next) => {
   try {
     const { firstName, lastName, phone, email, address } = JSON.parse(req.body.document);
