@@ -1,0 +1,42 @@
+[
+  {
+    "id": "policy-warranty",
+    "topic": "warranty",
+    "title": "Chính sách bảo hành",
+    "content": "Tất cả laptop tại Laptop Store được bảo hành chính hãng từ 12 đến 24 tháng tùy từng hãng sản xuất và dòng máy. Cửa hàng hỗ trợ 1 đổi 1 trong vòng 30 ngày đầu tiên nếu máy phát sinh lỗi phần cứng từ nhà sản xuất. Khách hàng có thể mang máy đến trực tiếp cửa hàng hoặc gửi qua đường bưu điện kèm phiếu mua hàng.",
+    "version": "1.0",
+    "updatedAt": "2026-09-21"
+  },
+  {
+    "id": "policy-return",
+    "topic": "return_policy",
+    "title": "Chính sách đổi trả",
+    "content": "Khách hàng được đổi mới miễn phí trong 30 ngày đầu nếu sản phẩm có lỗi kỹ thuật từ nhà sản xuất. Sản phẩm đổi trả phải còn nguyên hộp, đầy đủ phụ kiện, không bị trầy xước cấn móp và còn tem bảo hành. Sau 30 ngày, máy sẽ được áp dụng quy trình bảo hành sửa chữa theo tiêu chuẩn của hãng.",
+    "version": "1.0",
+    "updatedAt": "2026-09-21"
+  },
+  {
+    "id": "policy-shipping",
+    "topic": "shipping",
+    "title": "Chính sách vận chuyển & Giao hàng",
+    "content": "Laptop Store hỗ trợ giao hàng toàn quốc. Miễn phí vận chuyển cho tất cả đơn hàng có giá trị từ 5.000.000đ trở lên. Thời gian giao hàng nội thành từ 1-2 ngày, ngoại thành và các tỉnh từ 2-4 ngày làm việc. Khách hàng được đồng kiểm (kiểm tra ngoại quan máy và phụ kiện) trước khi nhận và thanh toán.",
+    "version": "1.0",
+    "updatedAt": "2026-09-21"
+  },
+  {
+    "id": "policy-payment",
+    "topic": "payment_methods",
+    "title": "Phương thức thanh toán & Trả góp",
+    "content": "Cửa hàng chấp nhận đa dạng phương thức thanh toán: Tiền mặt khi nhận hàng (COD), Chuyển khoản ngân hàng, Ví điện tử MoMo. Hỗ trợ trả góp 0% lãi suất qua thẻ tín dụng hoặc các công ty tài chính với thủ tục CCCD nhanh chóng trong 15 phút.",
+    "version": "1.0",
+    "updatedAt": "2026-09-21"
+  },
+  {
+    "id": "policy-contact",
+    "topic": "contact",
+    "title": "Thông tin liên hệ & Hỗ trợ",
+    "content": "Laptop Store sẵn sàng hỗ trợ quý khách: Hotline tư vấn & kỹ thuật: 0969 895 549 (8h30 - 21h30 hàng ngày). Email hỗ trợ: support@laptopstore.vn. Quý khách cũng có thể để lại tin nhắn trực tiếp qua khung chat AI để được tư vấn nhanh chóng.",
+    "version": "1.0",
+    "updatedAt": "2026-09-21"
+  }
+]
