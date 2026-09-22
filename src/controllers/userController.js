@@ -5,6 +5,7 @@ import { verify } from "jsonwebtoken";
 import sendMail from "~/utils/sendMail";
 import { cloudinary, uploadToCloudinary, uploadUserCloud, USER_FOLDER } from "~/configs/cloudinary";
 import { generateOTP } from "~/utils/helper";
+import { OAuth2Client } from "google-auth-library";
 
 const excludeFields =
   "-password -refreshToken -passwordChangeAt -passwordResetToken -passwordResetExpires";
@@ -107,6 +108,116 @@ const loginUser = async (req, res, next) => {
       error.statusCode = 401;
       throw error;
     }
+  } catch (error) {
+    next(error);
+  }
+};
+const googleLogin = async (req, res, next) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing Google credential token",
+      });
+    }
+
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const client = new OAuth2Client(clientId);
+
+    let payload;
+    try {
+      const ticket = await client.verifyIdToken({
+        idToken: credential,
+        audience: clientId || undefined,
+      });
+      payload = ticket.getPayload();
+    } catch (err) {
+      return res.status(401).json({
+        success: false,
+        message: "Google token is invalid or expired: " + err.message,
+      });
+    }
+
+    if (!payload || !payload.email) {
+      return res.status(400).json({
+        success: false,
+        message: "Google account does not provide an email address",
+      });
+    }
+
+    const { email, sub: googleId, name, picture, given_name, family_name } = payload;
+
+    let user = await User.findOne({ email }).populate({
+      path: "carts.product",
+      select: "title price discountPrice colors",
+    });
+
+    if (user) {
+      if (user.isBlocked) {
+        return res.status(403).json({
+          success: true,
+          status: 403,
+          message: "Your account has been blocked",
+        });
+      }
+
+      let needsSave = false;
+      if (!user.googleId) {
+        user.googleId = googleId;
+        needsSave = true;
+      }
+      if (picture && (!user.avatar?.url || user.avatar.url.includes("xwzectymp2ml2tatiia6.png"))) {
+        user.avatar = {
+          url: picture,
+          public_id: "google_avatar",
+        };
+        needsSave = true;
+      }
+      if (needsSave) {
+        await user.save();
+      }
+    } else {
+      const firstName = given_name || name?.split(" ")?.[0] || "User";
+      const lastName = family_name || name?.split(" ").slice(1).join(" ") || "";
+
+      user = await User.create({
+        email,
+        firstName,
+        lastName,
+        googleId,
+        authType: "google",
+        avatar: {
+          url:
+            picture ||
+            "https://res.cloudinary.com/dijvnphep/image/upload/v1722310317/DigitalStore/Users/xwzectymp2ml2tatiia6.png",
+          public_id: "google_avatar",
+        },
+        role: "user",
+      });
+    }
+
+    const newRefreshToken = generateRefreshToken(user._id);
+    await User.findByIdAndUpdate(user._id, { refreshToken: newRefreshToken });
+
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      maxAge: 7 * 60 * 60 * 1000,
+    });
+
+    const accessToken = generateAccessToken({
+      _id: user._id,
+      role: user.role,
+    });
+
+    const { password, refreshToken, ...userData } = user.toObject();
+
+    return res.status(200).json({
+      message: "Login with Google successfully",
+      success: true,
+      userData,
+      accessToken,
+    });
   } catch (error) {
     next(error);
   }
@@ -516,5 +627,6 @@ export {
   removeCart,
   updateWishlist,
   updateRole,
-  updateBlock
+  updateBlock,
+  googleLogin
 };

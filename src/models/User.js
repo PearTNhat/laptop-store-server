@@ -59,7 +59,19 @@ var userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
+      required: function () {
+        return this.authType !== "google";
+      },
+    },
+    googleId: {
+      type: String,
+      sparse: true,
+      unique: true,
+    },
+    authType: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
     },
     refreshToken: {
       type: String,
@@ -79,12 +91,13 @@ var userSchema = new mongoose.Schema(
   }
 );
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password") || !this.password) return next();
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 userSchema.methods = {
   comparePassword: async function (enterPassword) {
+    if (!this.password) return false;
     return await bcrypt.compare(enterPassword, this.password);
   },
   createPasswordChangedToken:  function  (){

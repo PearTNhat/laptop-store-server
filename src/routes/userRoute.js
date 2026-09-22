@@ -17,6 +17,7 @@ import {
   updatePassword,
   updateRole,
   updateWishlist,
+  googleLogin,
 } from "~/controllers/userController";
 import { isAdmin, verifyAccessToken } from "~/middleware/verifyToken";
 const Router = express.Router();
@@ -25,6 +26,7 @@ Router.post("/register", register);
 // Router.get("/final-register/:token", finalRegister);
 Router.post("/final-register", finalRegister);
 Router.post("/login", loginUser);
+Router.post("/google-login", googleLogin);
 Router.post("/refresh-token", refreshTokenUser);
 Router.get("/forgot-password", forgotPassword);
 Router.put("/reset-password/:resetToken", resetPassword);
