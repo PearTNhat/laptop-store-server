@@ -110,14 +110,6 @@ export async function generateChatReply({
   history = [],
   requestId = "req"
 }) {
-  if (!chatbotConfig.enabled) {
-    return {
-      reply: "Tính năng Chatbot AI tư vấn hiện đang tạm bảo trì để nâng cấp. Quý khách vui lòng liên hệ hotline 0969 895 549 để được hỗ trợ trực tiếp.",
-      products: [],
-      sources: []
-    };
-  }
-
   const keys =
     chatbotConfig.apiKeys && chatbotConfig.apiKeys.length > 0
       ? chatbotConfig.apiKeys

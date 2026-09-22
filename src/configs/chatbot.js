@@ -27,7 +27,6 @@ export const chatbotConfig = {
   models: allModels,
   model: allModels[0] || "gemini-3.5-flash-lite",
   fallbackModels: allModels.slice(1),
-  enabled: process.env.CHATBOT_ENABLED !== "false",
   maxHistoryTurns: 10,
   maxToolRounds: 3,
   maxToolCallsPerRequest: 6,
