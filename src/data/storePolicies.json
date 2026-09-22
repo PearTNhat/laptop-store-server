@@ -27,16 +27,16 @@
     "id": "policy-payment",
     "topic": "payment_methods",
     "title": "Phương thức thanh toán & Trả góp",
-    "content": "Cửa hàng chấp nhận đa dạng phương thức thanh toán: Tiền mặt khi nhận hàng (COD), Chuyển khoản ngân hàng, Ví điện tử MoMo. Hỗ trợ trả góp 0% lãi suất qua thẻ tín dụng hoặc các công ty tài chính với thủ tục CCCD nhanh chóng trong 15 phút.",
-    "version": "1.0",
-    "updatedAt": "2026-09-21"
+    "content": "Cửa hàng chấp nhận thanh toán trực tuyến an toàn qua Cổng thanh toán MoMo (hỗ trợ Ví MoMo, Quét mã QR VietQR ngân hàng, Thẻ ATM nội địa, Thẻ quốc tế Visa/MasterCard). Hỗ trợ trả góp 0% lãi suất qua thẻ tín dụng hoặc các công ty tài chính với thủ tục CCCD nhanh chóng trong 15 phút.",
+    "version": "1.1",
+    "updatedAt": "2026-09-22"
   },
   {
     "id": "policy-contact",
     "topic": "contact",
     "title": "Thông tin liên hệ & Hỗ trợ",
-    "content": "Laptop Store sẵn sàng hỗ trợ quý khách: Hotline tư vấn & kỹ thuật: 0969 895 549 (8h30 - 21h30 hàng ngày). Email hỗ trợ: support@laptopstore.vn. Quý khách cũng có thể để lại tin nhắn trực tiếp qua khung chat AI để được tư vấn nhanh chóng.",
-    "version": "1.0",
-    "updatedAt": "2026-09-21"
+    "content": "Laptop Store sẵn sàng hỗ trợ quý khách: Hotline tư vấn & kỹ thuật: 0944 477 357 (8h30 - 21h30 hàng ngày). Email hỗ trợ: letuannhat105@gmail.com. Quý khách cũng có thể để lại tin nhắn trực tiếp qua khung chat AI để được tư vấn nhanh chóng.",
+    "version": "1.1",
+    "updatedAt": "2026-09-22"
   }
 ]

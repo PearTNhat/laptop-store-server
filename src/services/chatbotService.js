@@ -26,9 +26,13 @@ Bạn là "Laptop Store AI Consultant" - Chuyên viên tư vấn bán laptop th�
    - TUYỆT ĐỐI KHÔNG BỎ SÓT MÁY GIÁ RẺ NHẤT: Nếu danh sách trả về có sản phẩm giá cực rẻ (kể cả giá đặc biệt như 2.000đ hay vài triệu do ưu đãi/dữ liệu thực tế tại kho), bạn PHẢI nêu rõ sản phẩm đó là mẫu có giá thấp nhất hiện tại trong kho. Tuyệt đối không được bỏ qua máy đó rồi tự ý tuyên bố một máy đắt hơn là "máy rẻ nhất tại cửa hàng".
    - Giải thích ngắn gọn ưu điểm của từng máy (CPU, RAM, card đồ họa, màn hình, trọng lượng) để khách dễ chọn lựa.
 
-4. BẢO MẬT & GIỚI HẠN NGHIỆP VỤ:
-   - Bạn chỉ hỗ trợ tư vấn sản phẩm và chính sách công khai.
-   - Nếu khách hỏi tra cứu đơn hàng, hủy đơn hoặc thanh toán đơn cũ: Lịch sự hướng dẫn khách vào mục "Đơn hàng" trên website hoặc liên hệ hotline 0969 895 549 để được nhân viên hỗ trợ bảo mật. Không yêu cầu khách gửi số điện thoại hay thông tin cá nhân trong chat.
+4. BẢO MẬT, THÔNG TIN LIÊN HỆ & GIỚI HẠN NGHIỆP VỤ:
+   - Bạn chỉ hỗ trợ tư vấn sản phẩm và chính sách công khai của cửa hàng.
+   - Nếu khách hỏi thông tin liên hệ / hotline / email cửa hàng: Cung cấp đầy đủ:
+     + Hotline / Zalo tư vấn: 0944 477 357 (8h30 - 21h30 hàng ngày).
+     + Email hỗ trợ: letuannhat105@gmail.com (Hỗ trợ trực tuyến 24/7).
+     + Địa chỉ: Quận 9, Thành phố Hồ Chí Minh.
+   - Nếu khách hỏi tra cứu đơn hàng, hủy đơn hoặc thanh toán đơn cũ: Lịch sự hướng dẫn khách vào mục "Đơn hàng" trên website hoặc liên hệ hotline 0944 477 357 (email: letuannhat105@gmail.com) để được nhân viên hỗ trợ bảo mật. Không yêu cầu khách gửi số điện thoại hay thông tin cá nhân trong chat.
 
 5. PHONG CÁCH GIAO TIẾP & ĐỊNH DẠNG:
    - Thân thiện, chu đáo, xưng "em" hoặc "mình", gọi khách là "bạn" hoặc "anh/chị".
@@ -117,7 +121,7 @@ export async function generateChatReply({
 
   if (keys.length === 0) {
     return {
-      reply: "Hệ thống AI chưa được cấu hình khóa API. Quý khách vui lòng liên hệ quản trị viên hoặc hotline 0969 895 549.",
+      reply: "Hệ thống AI chưa được cấu hình khóa API. Quý khách vui lòng liên hệ quản trị viên qua email letuannhat105@gmail.com hoặc hotline 0944 477 357.",
       products: [],
       sources: []
     };
@@ -227,7 +231,7 @@ export async function generateChatReply({
   } catch (error) {
     console.error(`[ChatbotService Error] [${requestId}]:`, error);
     return {
-      reply: "Dạ hiện tại hệ thống tư vấn đang bận một chút, em chưa kịp tra cứu xong. Bạn có thể gửi lại câu hỏi hoặc liên hệ hotline 0969 895 549 để được tư vấn nhanh nhất nhé!",
+      reply: "Dạ hiện tại hệ thống tư vấn đang bận một chút, em chưa kịp tra cứu xong. Bạn có thể gửi lại câu hỏi hoặc liên hệ hotline 0944 477 357 (email: letuannhat105@gmail.com) để được tư vấn nhanh nhất nhé!",
       products: [],
       sources: []
     };
