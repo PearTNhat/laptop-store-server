@@ -50,10 +50,10 @@ function getAIClient(apiKey) {
  * Gọi AI với cơ chế tự động chuyển sang Model và API Key dự phòng khi gặp lỗi 503/429
  */
 async function generateContentWithFailover({ contents }) {
-  const candidateModels = [
-    chatbotConfig.model,
-    ...(chatbotConfig.fallbackModels || [])
-  ];
+  const candidateModels =
+    chatbotConfig.models && chatbotConfig.models.length > 0
+      ? chatbotConfig.models
+      : [chatbotConfig.model, ...(chatbotConfig.fallbackModels || [])];
 
   const keys =
     chatbotConfig.apiKeys && chatbotConfig.apiKeys.length > 0

@@ -10,7 +10,7 @@ if (!apiKey) {
 } else {
   console.log("[Test] GEMINI_API_KEY is detected, testing connection...");
   const ai = new GoogleGenAI({ apiKey });
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const model = process.env.GEMINI_MODEL || "gemini-flash-lite-latest";
   ai.models.generateContent({
     model,
     contents: "Chào bạn, hãy trả lời 'OK' ngắn gọn."

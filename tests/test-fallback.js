@@ -16,11 +16,10 @@ async function testModel(m) {
 }
 
 async function run() {
-  await testModel('gemini-3.6-flash');
-  await testModel('gemini-3.7-flash');
-  await testModel('gemini-3.8-flash');
+  await testModel('gemini-3.5-flash-lite');
   await testModel('gemini-3.1-flash-lite');
-  await testModel('gemini-3.5-flash');
+  await testModel('gemini-3-flash-preview');
+  await testModel('gemini-flash-latest');
 }
 
 run().catch(console.error);
