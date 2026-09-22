@@ -1,9 +1,9 @@
 import express from "express";
-import { callbackPayment, createOrder, deleteOrder, deleteProductOrder, getAllOrders, getOrdersUser, paymentOrder, transactionStatus, updateInfoOrder, updateStatusOrderProduct } from "~/controllers/orderController";
+import { callbackPayment, createOrder, createOrderHandler, deleteOrder, deleteProductOrder, getAllOrders, getOrdersUser, paymentOrder, transactionStatus, updateInfoOrder, updateStatusOrderProduct } from "~/controllers/orderController";
 import { isAdmin, verifyAccessToken } from "~/middleware/verifyToken";
 const Router = express.Router();
 
-
+Router.route("/").post(verifyAccessToken, createOrderHandler)
 Router.route("/user").get(verifyAccessToken, getOrdersUser)
 Router.route("/get-all").get(verifyAccessToken, isAdmin, getAllOrders)
 

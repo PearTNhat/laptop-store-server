@@ -30,9 +30,9 @@ export const chatbotConfig = {
   maxHistoryTurns: 10,
   maxToolRounds: 3,
   maxToolCallsPerRequest: 6,
-  requestDeadlineMs: 30000,
-  dbQueryTimeoutMs: 3000,
-  lockTimeoutMs: 30000,
+  requestDeadlineMs: 75000,
+  dbQueryTimeoutMs: 5000,
+  lockTimeoutMs: 75000,
   sessionTtlHours: 24,
   rateLimit: {
     windowMs: 60 * 1000,

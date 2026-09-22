@@ -5,23 +5,26 @@ import User from '~/models/User';
 import Product from '~/models/Product';
 import Payment from '~/models/Payment';
 const createOrder = async (data) => {
-    const { products, total, address, phone, name, payInfo, orderBy } = data
+    const { products, total, address, phone, name, payInfo, orderBy } = data;
     if (!products || !total) {
         throw new Error('Missing input');
     }
-    //caap nhat lai so luong san pham
+    // Cập nhật lại số lượng sản phẩm
     for (let p of products) {
-        let currentProduct = await Product.findById(p.product._id);
-        currentProduct.colors = currentProduct.colors.map((color) => {
-            if (color.color.toLowerCase() === p.color.toLowerCase()) {
-                color.quantity -= p.quantity;
-                color.soldQuantity += p.quantity;
-            }
-            return color;
-        })
-        currentProduct.quantity = currentProduct.colors.reduce((acc, cur) => acc + cur.quantity, 0)
-        currentProduct.soldQuantity = currentProduct.colors.reduce((acc, cur) => acc + cur.soldQuantity, 0)
-        await currentProduct.save();
+        const productId = p.product?._id || p.product;
+        let currentProduct = await Product.findById(productId);
+        if (currentProduct && currentProduct.colors) {
+            currentProduct.colors = currentProduct.colors.map((color) => {
+                if (color.color && p.color && color.color.toLowerCase() === p.color.toLowerCase()) {
+                    color.quantity = Math.max(0, (color.quantity || 0) - p.quantity);
+                    color.soldQuantity = (color.soldQuantity || 0) + p.quantity;
+                }
+                return color;
+            });
+            currentProduct.quantity = currentProduct.colors.reduce((acc, cur) => acc + (cur.quantity || 0), 0);
+            currentProduct.soldQuantity = currentProduct.colors.reduce((acc, cur) => acc + (cur.soldQuantity || 0), 0);
+            await currentProduct.save();
+        }
     }
     const order = new Order({ products, total, address, phone, name, orderBy, payInfo });
     await order.save();
@@ -31,9 +34,44 @@ const createOrder = async (data) => {
         $set: {
             carts: []
         }
-    })
+    });
     return order;
-}
+};
+
+const createOrderHandler = async (req, res, next) => {
+    try {
+        const { products, total, address, phone, name } = req.body;
+        if (!products || products.length === 0 || !total || !address || !phone || !name) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp đầy đủ thông tin giao hàng.' });
+        }
+
+        // Tạo bản ghi thanh toán COD
+        const payment = await Payment.create({
+            orderId: 'COD' + Date.now(),
+            payName: 'COD',
+            total: total,
+            payType: 'Thanh toán khi nhận hàng (COD)'
+        });
+
+        const order = await createOrder({
+            products,
+            total,
+            address,
+            phone,
+            name,
+            payInfo: payment._id,
+            orderBy: req.user._id
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Đặt hàng thành công với hình thức COD',
+            data: order
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 const getOrdersUser = async (req, res, next) => {
     try {
         //1A filter
@@ -293,9 +331,30 @@ const paymentOrder = async (req, res, next) => {
             }
         }
         const response = await axios(options);
+        if (response.data && response.data.resultCode !== 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Lỗi MoMo (mã ${response.data.resultCode}): ${response.data.message || response.data.localMessage || 'Giao dịch bị từ chối'}`,
+                resultCode: response.data.resultCode,
+                detail: response.data
+            });
+        }
         res.status(200).json({ success: true, data: response.data });
         // return res.redirect('http://localhost:5173');
     } catch (error) {
+        if (error.response?.data) {
+            const data = error.response.data;
+            const code = data.resultCode !== undefined ? ` (mã ${data.resultCode})` : '';
+            const msg = data.message || data.localMessage || 'Lỗi từ cổng thanh toán MoMo';
+            console.error('MoMo Payment Error:', data);
+            return res.status(400).json({
+                success: false,
+                message: `Lỗi MoMo${code}: ${msg}`,
+                resultCode: data.resultCode,
+                detail: data
+            });
+        }
+        console.error('Payment Order Error:', error.message);
         next(error);
     }
 
@@ -360,11 +419,24 @@ const transactionStatus = async (req, res, next) => {
         }
         res.status(200).json({ success: true, data });
     } catch (error) {
+        if (error.response?.data) {
+            const data = error.response.data;
+            const code = data.resultCode !== undefined ? ` (mã ${data.resultCode})` : '';
+            const msg = data.message || data.localMessage || 'Lỗi kiểm tra trạng thái MoMo';
+            console.error('MoMo Transaction Status Error:', data);
+            return res.status(400).json({
+                success: false,
+                message: `Lỗi MoMo${code}: ${msg}`,
+                resultCode: data.resultCode,
+                detail: data
+            });
+        }
         next(error);
     }
 }
 export {
     createOrder,
+    createOrderHandler,
     getOrdersUser,
     getAllOrders,
     updateStatusOrderProduct,

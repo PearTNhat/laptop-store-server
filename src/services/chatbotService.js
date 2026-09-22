@@ -50,14 +50,32 @@ function getAIClient(apiKey) {
   return clientCache.get(apiKey);
 }
 
+async function generateContentWithTimeout(ai, model, contents, timeoutMs = 28000) {
+  return Promise.race([
+    ai.models.generateContent({
+      model,
+      contents,
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+        tools: geminiToolsConfig
+      }
+    }),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Model ${model} phản hồi quá ${timeoutMs / 1000}s (Timeout)`)), timeoutMs)
+    )
+  ]);
+}
+
 /**
  * Gọi AI với cơ chế tự động chuyển sang Model và API Key dự phòng khi gặp lỗi 503/429
  */
 async function generateContentWithFailover({ contents }) {
-  const candidateModels =
+  const allCandidateModels =
     chatbotConfig.models && chatbotConfig.models.length > 0
       ? chatbotConfig.models
       : [chatbotConfig.model, ...(chatbotConfig.fallbackModels || [])];
+
+  const candidateModels = allCandidateModels;
 
   const keys =
     chatbotConfig.apiKeys && chatbotConfig.apiKeys.length > 0
@@ -76,24 +94,19 @@ async function generateContentWithFailover({ contents }) {
       const key = keys[keyIndex];
       const ai = getAIClient(key);
 
+      const callStart = Date.now();
+      console.log(`[AI Call] Bắt đầu gọi model '${model}' (Key #${keyIndex + 1})...`);
       try {
-        const response = await ai.models.generateContent({
-          model,
-          contents,
-          config: {
-            systemInstruction: SYSTEM_INSTRUCTION,
-            tools: geminiToolsConfig
-          }
-        });
+        const response = await generateContentWithTimeout(ai, model, contents, 28000);
+        console.log(`[AI Call] Model '${model}' phản hồi thành công sau ${Date.now() - callStart}ms.`);
 
-        // Ghi nhớ key này đang hoạt động tốt
         currentKeyIndex = keyIndex;
         return { response, modelUsed: model };
       } catch (err) {
         lastError = err;
         const status = err.status || err.code;
         console.warn(
-          `[AI Failover] Model '${model}' (Key #${keyIndex + 1}) bận/lỗi (${status || "Unknown"}). Đang tự động chuyển sang phương án dự phòng...`
+          `[AI Failover] Model '${model}' (Key #${keyIndex + 1}) bận/lỗi sau ${Date.now() - callStart}ms: ${status || err.message}. Đang chuyển sang phương án tiếp theo...`
         );
 
         if (status === 503 || status === 429) {
@@ -103,6 +116,7 @@ async function generateContentWithFailover({ contents }) {
     }
   }
 
+  console.error(`[AI Failover Exhausted] Tất cả các model (${candidateModels.join(", ")}) đều không phản hồi:`, lastError);
   throw lastError;
 }
 
@@ -230,8 +244,18 @@ export async function generateChatReply({
     };
   } catch (error) {
     console.error(`[ChatbotService Error] [${requestId}]:`, error);
+    const isOverloaded =
+      error.message?.includes("503") ||
+      error.status === 503 ||
+      error.message?.includes("high demand") ||
+      error.message?.includes("UNAVAILABLE");
+
+    const replyMsg = isOverloaded
+      ? "Dạ hiện tại cụm máy chủ Google Gemini đang trong khung giờ cao điểm (quá tải 503). Bạn vui lòng thử gửi lại câu hỏi sau 10 - 15 giây giúp em nhé!"
+      : `Dạ hiện tại hệ thống AI đang gặp chút gián đoạn (${error.message || "Lỗi xử lý"}). Bạn vui lòng gửi lại câu hỏi hoặc liên hệ hotline 0944 477 357 (email: letuannhat105@gmail.com) nhé!`;
+
     return {
-      reply: "Dạ hiện tại hệ thống tư vấn đang bận một chút, em chưa kịp tra cứu xong. Bạn có thể gửi lại câu hỏi hoặc liên hệ hotline 0944 477 357 (email: letuannhat105@gmail.com) để được tư vấn nhanh nhất nhé!",
+      reply: replyMsg,
       products: [],
       sources: []
     };
