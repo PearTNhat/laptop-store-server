@@ -108,6 +108,7 @@ export function formatProductDTO(doc) {
 export async function searchLaptops({
   keyword,
   brand,
+  excludedBrands = [],
   minPrice,
   maxPrice,
   ram,
@@ -119,10 +120,16 @@ export async function searchLaptops({
   // 1. Chỉ lấy sản phẩm có ít nhất 1 màu còn hàng
   query.colors = { $elemMatch: { quantity: { $gt: 0 } } };
 
-  // 2. Lọc thương hiệu
+  // 2. Lọc thương hiệu & Loại trừ thương hiệu (nếu có)
   const cleanBrand = normalizeBrand(brand);
+  const cleanExcluded = Array.isArray(excludedBrands)
+    ? excludedBrands.map(normalizeBrand).filter(Boolean)
+    : [];
+
   if (cleanBrand) {
     query.brand = cleanBrand;
+  } else if (cleanExcluded.length > 0) {
+    query.brand = { $nin: cleanExcluded };
   }
 
   // 3. Lọc RAM
@@ -131,32 +138,40 @@ export async function searchLaptops({
     query["configs.ram.value"] = new RegExp(`^${cleanRam}`, "i");
   }
 
-  // 4. Lọc nhu cầu (Gaming, Văn phòng, Sinh viên)
+  // 4. Lọc nhu cầu (Gaming, Văn phòng, Sinh viên, Đồ họa)
   if (need) {
     const needRegex = new RegExp(need.trim(), "i");
     query["configs.need.description"] = needRegex;
   }
 
-  // 5. Lọc khoảng giá
+  // 5. Lọc khoảng giá chuẩn xác:
+  // - Nếu discountPrice > 0: giá bán thực tế là discountPrice
+  // - Nếu discountPrice = 0 hoặc null: giá bán thực tế là price gốc
   const numMinPrice = normalizePrice(minPrice);
   const numMaxPrice = normalizePrice(maxPrice);
 
   if (numMinPrice !== null || numMaxPrice !== null) {
     const priceConditions = [];
 
-    // Điều kiện với discountPrice > 0
-    const discountCond = {};
+    // Nhánh 1: Có discountPrice > 0 (áp dụng giá khuyến mãi)
+    const discountCond = { $gt: 0 };
     if (numMinPrice !== null) discountCond.$gte = numMinPrice;
     if (numMaxPrice !== null) discountCond.$lte = numMaxPrice;
     priceConditions.push({ discountPrice: discountCond });
 
-    // Điều kiện với discountPrice = 0 hoặc null, lấy price gốc
+    // Nhánh 2: Không giảm giá (discountPrice = 0 hoặc null) -> lấy theo price gốc
     const originalCond = {};
     if (numMinPrice !== null) originalCond.$gte = numMinPrice;
     if (numMaxPrice !== null) originalCond.$lte = numMaxPrice;
     priceConditions.push({
       $and: [
-        { $or: [{ discountPrice: 0 }, { discountPrice: null }] },
+        {
+          $or: [
+            { discountPrice: 0 },
+            { discountPrice: null },
+            { discountPrice: { $exists: false } }
+          ]
+        },
         { price: originalCond }
       ]
     });
@@ -164,7 +179,7 @@ export async function searchLaptops({
     query.$or = priceConditions;
   }
 
-  // 6. Lọc từ khóa tìm kiếm theo tiêu đề
+  // 6. Lọc từ khóa tìm kiếm theo tiêu đề (escape ký tự đặc biệt tránh lỗi regex)
   if (keyword && typeof keyword === "string") {
     const cleanKeyword = keyword.trim().replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
     if (cleanKeyword.length > 0) {
@@ -174,12 +189,65 @@ export async function searchLaptops({
 
   const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 3, 1), 5);
 
-  const docs = await Product.find(query)
-    .sort({ discountPrice: 1, price: 1, _id: 1 })
-    .limit(safeLimit)
-    .lean();
+  // Dùng Aggregation để tính effectivePrice và sắp xếp chính xác giá rẻ nhất
+  const docs = await Product.aggregate([
+    { $match: query },
+    {
+      $addFields: {
+        effectivePrice: {
+          $cond: [
+            {
+              $and: [
+                { $gt: ["$discountPrice", 0] },
+                { $ne: ["$discountPrice", null] }
+              ]
+            },
+            "$discountPrice",
+            "$price"
+          ]
+        }
+      }
+    },
+    { $sort: { effectivePrice: 1, _id: 1 } },
+    { $limit: safeLimit }
+  ]);
 
   return docs.map(formatProductDTO);
+}
+
+/**
+ * Xây dựng đoạn ngữ cảnh dữ liệu có cấu trúc cho Prompt RAG của Gemini
+ */
+export function buildRagPromptContext({
+  products = [],
+  policy = null,
+  activeFilters = {}
+}) {
+  let contextText = "";
+
+  if (products && products.length > 0) {
+    contextText += `[DANH SÁCH LAPTOP PHÙ HỢP TỪ KHO HÀNG (ĐÃ SẮP XẾP TỪ GIÁ THẤP NHẤT ĐẾN CAO HƠN)]:\n`;
+    products.forEach((p, index) => {
+      const discountNote =
+        p.originalPriceVnd > p.priceVnd
+          ? ` (Giá niêm yết cũ: ${p.originalPriceVnd.toLocaleString("vi-VN")}đ - Đang giảm còn ${p.priceVnd.toLocaleString("vi-VN")}đ)`
+          : "";
+      contextText += `Máy #${index + 1}: ${p.title}
+- Giá bán cho khách: ${p.priceVnd.toLocaleString("vi-VN")}đ${discountNote}
+- Hãng: ${p.brand ? p.brand.toUpperCase() : "Khác"}
+- Cấu hình chi tiết: CPU: ${p.specs?.cpu || "Tiêu chuẩn"} | RAM: ${p.specs?.ram || "Tiêu chuẩn"} | Ổ cứng: ${p.specs?.hardDrive || "SSD"} | Đồ họa: ${p.specs?.graphicCard || "Tích hợp"} | Màn hình: ${p.specs?.screen || "15.6 inch"} | Trọng lượng: ${p.specs?.weight || "Khoảng 1.8kg"}
+- Tình trạng hàng: ${p.availability}
+- Đường dẫn xem chi tiết: ${p.productUrl}\n\n`;
+    });
+  } else {
+    contextText += `[DỮ LIỆU SẢN PHẨM]: Hiện tại không có mẫu laptop nào trong kho thỏa mãn chính xác tất cả tiêu chí đang tìm.\n\n`;
+  }
+
+  if (policy && policy.content) {
+    contextText += `[THÔNG TIN CHÍNH SÁCH CHÍNH THỨC CỦA CỬA HÀNG (${policy.title})]:\n${policy.content}\n\n`;
+  }
+
+  return contextText;
 }
 
 /**

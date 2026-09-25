@@ -37,11 +37,8 @@ const chatSessionSchema = new mongoose.Schema({
   },
   messages: [chatMessageSchema],
   activeFilters: {
-    brand: String,
-    minPrice: Number,
-    maxPrice: Number,
-    ram: String,
-    need: String
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   },
   lastSuggestedProducts: [
     {
@@ -57,6 +54,10 @@ const chatSessionSchema = new mongoose.Schema({
   isProcessing: {
     type: Boolean,
     default: false
+  },
+  lockToken: {
+    type: String,
+    default: null
   },
   lockUntil: {
     type: Date,

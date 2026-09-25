@@ -37,15 +37,16 @@ export async function getOrCreateSession({ sessionId, guestId }) {
 }
 
 /**
- * Thử giành khóa xử lý (Acquire Lock) để tránh 2 request đồng thời gây deadlock
+ * Thử giành khóa xử lý (Acquire Lock) với Token độc quyền để tránh race-condition
  */
 export async function acquireSessionLock(sessionId) {
   const now = new Date();
   const lockExpiry = new Date(now.getTime() + chatbotConfig.lockTimeoutMs);
+  const lockToken = generateRandomId("lock");
 
   // Điều kiện để được cấp khóa:
   // 1. isProcessing == false
-  // HOẶC 2. lockUntil < now (khóa cũ đã hết hạn, server crash tự hồi phục)
+  // HOẶC 2. lockUntil < now (khóa cũ đã hết hạn, tự hồi phục)
   // HOẶC 3. lockUntil == null
   const session = await ChatSession.findOneAndUpdate(
     {
@@ -59,28 +60,32 @@ export async function acquireSessionLock(sessionId) {
     {
       $set: {
         isProcessing: true,
-        lockUntil: lockExpiry
+        lockUntil: lockExpiry,
+        lockToken
       }
     },
     { new: true }
   );
 
-  return session; // Nếu null nghĩa là phiên đang bị khóa hợp lệ bởi request khác
+  return session ? { session, lockToken } : null;
 }
 
 /**
- * Giải phóng khóa xử lý (Release Lock)
+ * Giải phóng khóa xử lý (Release Lock) - Chỉ giải phóng nếu đúng chủ sở hữu lockToken
  */
-export async function releaseSessionLock(sessionId) {
-  await ChatSession.updateOne(
-    { sessionId },
-    {
-      $set: {
-        isProcessing: false,
-        lockUntil: null
-      }
+export async function releaseSessionLock(sessionId, lockToken) {
+  const query = { sessionId };
+  if (lockToken) {
+    query.lockToken = lockToken;
+  }
+
+  await ChatSession.updateOne(query, {
+    $set: {
+      isProcessing: false,
+      lockUntil: null,
+      lockToken: null
     }
-  );
+  });
 }
 
 /**
@@ -88,10 +93,12 @@ export async function releaseSessionLock(sessionId) {
  */
 export async function saveTurn({
   sessionId,
+  lockToken,
   userMessage,
   modelReply,
   suggestedProducts = [],
-  sources = []
+  sources = [],
+  activeFilters = null
 }) {
   const session = await ChatSession.findOne({ sessionId });
   if (!session) return null;
@@ -123,12 +130,23 @@ export async function saveTurn({
     session.lastSuggestedProducts = suggestedProducts;
   }
 
+  // Cập nhật bộ lọc ngữ cảnh cho các lượt chat tiếp nối (nhớ tiêu chí)
+  if (activeFilters && typeof activeFilters === "object") {
+    session.activeFilters = activeFilters;
+    session.markModified("activeFilters");
+  }
+
   // Cập nhật thời hạn hết hạn 24h từ lúc hoạt động gần nhất
   session.expiresAt = new Date(
     Date.now() + chatbotConfig.sessionTtlHours * 3600 * 1000
   );
-  session.isProcessing = false;
-  session.lockUntil = null;
+
+  // Chỉ giải phóng khóa nếu lockToken khớp
+  if (!lockToken || session.lockToken === lockToken) {
+    session.isProcessing = false;
+    session.lockUntil = null;
+    session.lockToken = null;
+  }
 
   await session.save();
   return session;

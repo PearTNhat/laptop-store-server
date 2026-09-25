@@ -4,29 +4,57 @@ import { connectDB } from "../src/configs/mongodb";
 import { generateChatReply } from "../src/services/chatbotService";
 
 async function testAIChat() {
-  console.log("=== KIỂM THỬ THỰC TẾ GEMINI 3.6 FLASH + FUNCTION CALLING ===");
+  console.log("=== KIỂM THỬ ĐỘ NHỚ NGỮ CẢNH MULTI-TURN ===");
   await connectDB();
 
-  const userQuery = "tư vấn laptop giá rẻ nhất";
-  console.log(`[User]: "${userQuery}"`);
+  let lastProducts = [];
+  let currentFilters = {};
 
-  const result = await generateChatReply({
-    message: userQuery,
+  // Turn 1: Tìm máy Asus dưới 25 triệu
+  console.log("\n[LƯỢT 1]: 'tìm laptop asus dưới 25 triệu'");
+  let res = await generateChatReply({
+    message: "tìm laptop asus dưới 25 triệu",
     history: [],
-    requestId: "test_req_1"
+    activeFilters: currentFilters,
+    lastSuggestedProducts: lastProducts,
+    requestId: "turn_1"
   });
+  console.log(`⏱️ Thời gian: ${res.reply.length > 0 ? "OK" : "Lỗi"} | Filters:`, res.activeFilters);
+  console.log("Các máy tìm được:", res.products.map(p => `[${p.brand}] ${p.title} - ${p.priceVnd}đ`));
+  lastProducts = res.products;
+  currentFilters = res.activeFilters;
 
-  console.log("\n[AI Reply]:");
-  console.log(result.reply);
-
-  console.log(`\n[Gợi ý ${result.products.length} sản phẩm thật từ MongoDB]:`);
-  result.products.forEach((p, i) => {
-    console.log(`  ${i + 1}. ${p.title} - ${p.priceVnd.toLocaleString('vi-VN')}đ (RAM: ${p.specs.ram}, Link: ${p.productUrl})`);
+  // Turn 2: Người dùng hỏi tiếp "có máy nào RAM 16GB không?" (Kỳ vọng: vẫn giữ hãng Asus & dưới 25tr, thêm ram 16GB)
+  console.log("\n[LƯỢT 2 (Hỏi tiếp)]: 'có máy nào ram 16gb không?'");
+  res = await generateChatReply({
+    message: "có máy nào ram 16gb không?",
+    history: [
+      { role: "user", content: "tìm laptop asus dưới 25 triệu" },
+      { role: "model", content: res.reply }
+    ],
+    activeFilters: currentFilters,
+    lastSuggestedProducts: lastProducts,
+    requestId: "turn_2"
   });
+  console.log("Filters kế thừa thành công:", res.activeFilters);
+  console.log("Các máy tìm được:", res.products.map(p => `[${p.brand}] ${p.title} - RAM: ${p.specs.ram} - ${p.priceVnd}đ`));
 
-  console.log("\n[Nguồn tra cứu]:", result.sources);
+  // Turn 3: Hỏi về máy số 1 "con máy đầu tiên nâng cấp ram được không?"
+  console.log("\n[LƯỢT 3 (Tham chiếu máy cũ)]: 'con máy đầu tiên nâng cấp ram được không?'");
+  res = await generateChatReply({
+    message: "con máy đầu tiên nâng cấp ram được không?",
+    history: [
+      { role: "user", content: "có máy nào ram 16gb không?" },
+      { role: "model", content: res.reply }
+    ],
+    activeFilters: res.activeFilters,
+    lastSuggestedProducts: res.products,
+    requestId: "turn_3"
+  });
+  console.log("AI trả lời về máy đầu tiên:\n", res.reply);
 
   await mongoose.disconnect();
+  console.log("\n=== KIỂM THỬ HOÀN TẤT ===");
 }
 
 testAIChat().catch(err => {

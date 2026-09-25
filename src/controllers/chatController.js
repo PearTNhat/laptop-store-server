@@ -20,6 +20,8 @@ export async function handleChatMessage(req, res, next) {
     generateRandomId("guest");
 
   let session = null;
+  let lockToken = null;
+
   try {
     const startTime = Date.now();
     console.log(`[ChatController] [${requestId}] Bắt đầu xử lý tin nhắn: "${message}" (conv: ${conversationId || 'new'})`);
@@ -30,9 +32,9 @@ export async function handleChatMessage(req, res, next) {
       guestId
     });
 
-    // 2. Thử giành khóa để ngăn 2 request đồng thời
-    const lockedSession = await acquireSessionLock(session.sessionId);
-    if (!lockedSession) {
+    // 2. Thử giành khóa để ngăn 2 request đồng thời (sử dụng Token độc quyền)
+    const lockResult = await acquireSessionLock(session.sessionId);
+    if (!lockResult) {
       console.warn(`[ChatController] [${requestId}] Phiên ${session.sessionId} đang bị khóa bởi request khác.`);
       return res.status(409).json({
         success: false,
@@ -45,20 +47,26 @@ export async function handleChatMessage(req, res, next) {
       });
     }
 
-    // 3. Gọi dịch vụ Gemini AI tư vấn
+    lockToken = lockResult.lockToken;
+
+    // 3. Gọi dịch vụ Gemini AI tư vấn (truyền đầy đủ activeFilters và lastSuggestedProducts)
     const aiResult = await generateChatReply({
       message,
       history: session.messages || [],
+      activeFilters: session.activeFilters || {},
+      lastSuggestedProducts: session.lastSuggestedProducts || [],
       requestId
     });
 
-    // 4. Lưu lại lượt trò chuyện vào MongoDB
+    // 4. Lưu lại lượt trò chuyện vào MongoDB (đồng thời lưu lại activeFilters và giải phóng lock)
     await saveTurn({
       sessionId: session.sessionId,
+      lockToken,
       userMessage: message,
       modelReply: aiResult.reply,
       suggestedProducts: aiResult.products,
-      sources: aiResult.sources
+      sources: aiResult.sources,
+      activeFilters: aiResult.activeFilters
     });
 
     // 5. Cấp cookie HttpOnly cho guest & conversation
@@ -88,14 +96,14 @@ export async function handleChatMessage(req, res, next) {
   } catch (error) {
     console.error(`[ChatController Error] [${requestId}]:`, error);
     if (session) {
-      await releaseSessionLock(session.sessionId);
+      await releaseSessionLock(session.sessionId, lockToken);
     }
     return res.status(500).json({
       success: false,
       error: {
         code: 500,
-        message: error.message || "Không thể kết nối đến máy chủ AI, vui lòng thử lại sau.",
-        detail: error.stack
+        message: "Không thể kết nối đến máy chủ AI, vui lòng thử lại sau.",
+        retryable: true
       },
       requestId
     });

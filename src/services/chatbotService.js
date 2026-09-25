@@ -1,43 +1,45 @@
 import { GoogleGenAI } from "@google/genai";
 import { chatbotConfig } from "~/configs/chatbot";
-import { geminiToolsConfig, executeTool } from "./chatbotTools";
+import {
+  searchLaptops,
+  getLaptopDetail,
+  buildRagPromptContext
+} from "./productAdvisor";
+import { parseUserIntent } from "./fastIntentParser";
+import {
+  getCachedSearchResults,
+  buildSearchCacheKey,
+  getCachedPolicy
+} from "./chatCacheService";
 
-export const SYSTEM_INSTRUCTION = `
+export const RAG_SYSTEM_INSTRUCTION = `
 Bạn là "Laptop Store AI Consultant" - Chuyên viên tư vấn bán laptop thông minh, tận tâm và chuyên nghiệp của cửa hàng Laptop Store.
 
 [QUY TẮC CỐT LÕI BẮT BUỘC]:
-1. CHỈ TƯ VẤN DỰA TRÊN DỮ LIỆU THẬT TỪ DATABASE:
-   - Bạn được cung cấp các công cụ (Tools) để tra cứu dữ liệu thực tế:
-     + Khi khách hỏi tìm laptop, hỏi giá, hỏi cấu hình, so sánh máy: BẮT BUỘC gọi tool 'searchLaptops' hoặc 'getLaptopDetail'.
-     + Khi khách hỏi chính sách (bảo hành, đổi trả, ship hàng, thanh toán, trả góp, hotline): BẮT BUỘC gọi tool 'getStorePolicy'.
-   - TUYỆT ĐỐI KHÔNG tự bịa đặt giá cả, cấu hình, thông số hoặc sản phẩm không có trong kết quả trả về của tool (Zero Hallucination).
-   - Nếu tìm kiếm không có máy nào khớp: Hãy nói rõ ràng rằng hiện tại cửa hàng chưa có dòng máy đáp ứng chính xác tất cả tiêu chí đó, và gợi ý khách điều chỉnh ngân sách hoặc tiêu chí (ví dụ: đổi sang hãng khác, tăng nhẹ ngân sách).
+1. CHỈ TƯ VẤN DỰA TRÊN DỮ LIỆU ĐƯỢC CUNG CẤP:
+   - Dữ liệu sản phẩm thực tế từ kho hàng được gửi kèm trong prompt.
+   - Tuyệt đối KHÔNG tự bịa đặt giá cả, cấu hình, thông số hoặc sản phẩm không có trong danh sách (Zero Hallucination).
+   - Nếu trong dữ liệu thông báo không có máy nào phù hợp: Hãy nói rõ ràng rằng hiện tại cửa hàng chưa có dòng máy đáp ứng chính xác tất cả tiêu chí đó, và gợi ý khách điều chỉnh ngân sách hoặc tiêu chí (ví dụ: đổi sang hãng khác, tăng nhẹ ngân sách).
 
-2. CHUẨN HÓA TIẾNG VIỆT & TỪ KHÓA:
-   - Khách hàng có thể gõ tiếng Việt không dấu, viết tắt ("20 củ", "20tr", "15 chai", "ram 16g"). Khi trích xuất tham số gọi tool, bạn hãy tự động chuẩn hóa:
-     + Giá tiền sang số VND nguyên (ví dụ: '15 củ' -> 15000000, '20tr' -> 20000000).
-     + RAM sang định dạng chuẩn (ví dụ: '16GB', '8GB').
-     + Hãng laptop viết thường (ví dụ: 'dell', 'asus', 'lenovo', 'acer', 'hp', 'msi', 'apple').
-     + Nhu cầu sang một trong các nhóm: 'Văn phòng', 'Gaming', 'Sinh viên', 'Đồ họa'.
+2. ĐỒNG BỘ TUYỆT ĐỐI VỚI DANH SÁCH SẢN PHẨM:
+   - Backend sẽ tự động hiển thị các thẻ Card sản phẩm bên dưới câu trả lời của bạn tương ứng với danh sách được cung cấp.
+   - BẮT BUỘC GIỚI THIỆU ĐẦY ĐỦ CÁC MÁY trong danh sách, theo đúng thứ tự từ giá thấp nhất đến cao hơn.
+   - KHÔNG ĐƯỢC BỎ SÓT MÁY GIÁ RẺ NHẤT: Nếu danh sách có sản phẩm giá rẻ đặc biệt (kể cả giá 2.000đ do ưu đãi tại kho), bạn PHẢI nêu rõ sản phẩm đó là mẫu có mức giá thấp nhất hiện tại.
+   - Nêu rõ giá bán thực tế cho khách. Nếu có giá niêm yết cũ cao hơn, hãy nhắc đến mức giảm giá ưu đãi.
+   - Tóm tắt ngắn gọn ưu điểm cấu hình (CPU, RAM, card đồ họa, màn hình, trọng lượng) giúp khách dễ đưa ra quyết định.
 
-3. TÍNH ĐỒNG BỘ TUYỆT ĐỐI GIỮA LỜI VĂN VÀ DANH SÁCH SẢN PHẨM TOOL:
-   - Backend sẽ tự động hiển thị các thẻ Card sản phẩm bên dưới câu trả lời của bạn tương ứng với danh sách Tool trả về.
-   - BẮT BUỘC GIỚI THIỆU ĐẦY ĐỦ CÁC MÁY TRONG KẾT QUẢ TOOL: Khi tool 'searchLaptops' trả về danh sách sản phẩm (ví dụ 2-3 máy), bạn PHẢI điểm qua và giới thiệu tất cả các máy đó trong lời phản hồi, theo đúng thứ tự từ giá thấp nhất đến cao hơn.
-   - TUYỆT ĐỐI KHÔNG BỎ SÓT MÁY GIÁ RẺ NHẤT: Nếu danh sách trả về có sản phẩm giá cực rẻ (kể cả giá đặc biệt như 2.000đ hay vài triệu do ưu đãi/dữ liệu thực tế tại kho), bạn PHẢI nêu rõ sản phẩm đó là mẫu có giá thấp nhất hiện tại trong kho. Tuyệt đối không được bỏ qua máy đó rồi tự ý tuyên bố một máy đắt hơn là "máy rẻ nhất tại cửa hàng".
-   - Giải thích ngắn gọn ưu điểm của từng máy (CPU, RAM, card đồ họa, màn hình, trọng lượng) để khách dễ chọn lựa.
+3. XỬ LÝ THÔNG TIN THIẾU:
+   - Nếu khách hỏi thông số kỹ thuật không có trong dữ liệu (ví dụ: máy có mấy khe RAM, nâng cấp tối đa bao nhiêu GB, pin dùng liên tục mấy tiếng, FPS cụ thể game này): Hãy nói rõ rằng thông số chi tiết này chưa được nhà sản xuất cập nhật trong hệ thống và hướng dẫn khách liên hệ hotline 0944 477 357 để kỹ thuật viên kiểm tra trực tiếp trên máy.
 
-4. BẢO MẬT, THÔNG TIN LIÊN HỆ & GIỚI HẠN NGHIỆP VỤ:
-   - Bạn chỉ hỗ trợ tư vấn sản phẩm và chính sách công khai của cửa hàng.
-   - Nếu khách hỏi thông tin liên hệ / hotline / email cửa hàng: Cung cấp đầy đủ:
-     + Hotline / Zalo tư vấn: 0944 477 357 (8h30 - 21h30 hàng ngày).
-     + Email hỗ trợ: letuannhat105@gmail.com (Hỗ trợ trực tuyến 24/7).
-     + Địa chỉ: Quận 9, Thành phố Hồ Chí Minh.
-   - Nếu khách hỏi tra cứu đơn hàng, hủy đơn hoặc thanh toán đơn cũ: Lịch sự hướng dẫn khách vào mục "Đơn hàng" trên website hoặc liên hệ hotline 0944 477 357 (email: letuannhat105@gmail.com) để được nhân viên hỗ trợ bảo mật. Không yêu cầu khách gửi số điện thoại hay thông tin cá nhân trong chat.
+4. THÔNG TIN CỬA HÀNG & LIÊN HỆ:
+   - Hotline / Zalo tư vấn: 0944 477 357 (8h30 - 21h30 hàng ngày).
+   - Email hỗ trợ: letuannhat105@gmail.com.
+   - Địa chỉ: Quận 9, Thành phố Hồ Chí Minh.
+   - Khách hỏi tra cứu đơn hàng / hủy đơn: Hướng dẫn vào mục "Đơn hàng" trên website hoặc liên hệ hotline.
 
-5. PHONG CÁCH GIAO TIẾP & ĐỊNH DẠNG:
-   - Thân thiện, chu đáo, xưng "em" hoặc "mình", gọi khách là "bạn" hoặc "anh/chị".
-   - Câu trả lời rõ ràng, ngắt đoạn mạch lạc, dùng các gạch đầu dòng gọn gàng, dễ đọc trên điện thoại.
-   - Trình bày thoáng, chỉ in đậm tên máy hoặc giá tiền, tránh lạm dụng quá nhiều dấu sao đậm nhạt chi chít để người đọc dễ theo dõi.
+5. PHONG CÁCH GIAO TIẾP:
+   - Thân thiện, chu đáo, xưng "em", gọi khách là "bạn" hoặc "anh/chị".
+   - Câu trả lời rõ ràng, ngắt đoạn mạch lạc, dùng các gạch đầu dòng gọn gàng, in đậm tên máy và giá bán.
 `;
 
 const clientCache = new Map();
@@ -50,32 +52,38 @@ function getAIClient(apiKey) {
   return clientCache.get(apiKey);
 }
 
-async function generateContentWithTimeout(ai, model, contents, timeoutMs = 28000) {
-  return Promise.race([
-    ai.models.generateContent({
-      model,
-      contents,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        tools: geminiToolsConfig
-      }
-    }),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`Model ${model} phản hồi quá ${timeoutMs / 1000}s (Timeout)`)), timeoutMs)
-    )
-  ]);
+/**
+ * Gọi AI kèm cơ chế timeout có dọn dẹp timer an toàn
+ */
+async function generateContentWithTimeout(ai, model, contents, config, timeoutMs = 18000) {
+  let timer;
+  try {
+    return await Promise.race([
+      ai.models.generateContent({
+        model,
+        contents,
+        config
+      }),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Model ${model} phản hồi quá ${timeoutMs / 1000}s (Timeout)`)),
+          timeoutMs
+        );
+      })
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 /**
- * Gọi AI với cơ chế tự động chuyển sang Model và API Key dự phòng khi gặp lỗi 503/429
+ * Gọi AI với cơ chế tự động chuyển đổi Model & API Key trong ngân sách thời gian (Deadline)
  */
-async function generateContentWithFailover({ contents }) {
+async function generateContentWithFailover({ contents, config, deadline }) {
   const allCandidateModels =
     chatbotConfig.models && chatbotConfig.models.length > 0
       ? chatbotConfig.models
       : [chatbotConfig.model, ...(chatbotConfig.fallbackModels || [])];
-
-  const candidateModels = allCandidateModels;
 
   const keys =
     chatbotConfig.apiKeys && chatbotConfig.apiKeys.length > 0
@@ -88,16 +96,26 @@ async function generateContentWithFailover({ contents }) {
 
   let lastError = null;
 
-  for (const model of candidateModels) {
+  for (const model of allCandidateModels) {
+    if (deadline && Date.now() >= deadline) {
+      console.warn(`[AI Failover] Đã chạm deadline tổng của request, dừng thử thêm model.`);
+      break;
+    }
+
     for (let i = 0; i < keys.length; i++) {
+      if (deadline && Date.now() >= deadline) break;
+
       const keyIndex = (currentKeyIndex + i) % keys.length;
       const key = keys[keyIndex];
       const ai = getAIClient(key);
 
+      const remainingTime = deadline ? Math.max(deadline - Date.now(), 4000) : 20000;
+      const timeoutMs = Math.min(remainingTime, 18000);
+
       const callStart = Date.now();
-      console.log(`[AI Call] Bắt đầu gọi model '${model}' (Key #${keyIndex + 1})...`);
+      console.log(`[AI Call] Bắt đầu gọi model '${model}' (Key #${keyIndex + 1}) - timeout ${timeoutMs}ms...`);
       try {
-        const response = await generateContentWithTimeout(ai, model, contents, 28000);
+        const response = await generateContentWithTimeout(ai, model, contents, config, timeoutMs);
         console.log(`[AI Call] Model '${model}' phản hồi thành công sau ${Date.now() - callStart}ms.`);
 
         currentKeyIndex = keyIndex;
@@ -106,26 +124,27 @@ async function generateContentWithFailover({ contents }) {
         lastError = err;
         const status = err.status || err.code;
         console.warn(
-          `[AI Failover] Model '${model}' (Key #${keyIndex + 1}) bận/lỗi sau ${Date.now() - callStart}ms: ${status || err.message}. Đang chuyển sang phương án tiếp theo...`
+          `[AI Failover] Model '${model}' (Key #${keyIndex + 1}) lỗi sau ${Date.now() - callStart}ms: ${status || err.message}`
         );
 
         if (status === 503 || status === 429) {
-          await new Promise((r) => setTimeout(r, 600));
+          await new Promise((r) => setTimeout(r, 400));
         }
       }
     }
   }
 
-  console.error(`[AI Failover Exhausted] Tất cả các model (${candidateModels.join(", ")}) đều không phản hồi:`, lastError);
-  throw lastError;
+  throw lastError || new Error("Tất cả các model AI đều không phản hồi.");
 }
 
 /**
- * Xử lý lượt chat thông minh với Google Gen AI SDK
+ * Xử lý lượt chat thông minh: Tinh gọn 100%, phản hồi tốc độ cao qua Pre-search RAG
  */
 export async function generateChatReply({
   message,
   history = [],
+  activeFilters = {},
+  lastSuggestedProducts = [],
   requestId = "req"
 }) {
   const keys =
@@ -135,112 +154,188 @@ export async function generateChatReply({
 
   if (keys.length === 0) {
     return {
-      reply: "Hệ thống AI chưa được cấu hình khóa API. Quý khách vui lòng liên hệ quản trị viên qua email letuannhat105@gmail.com hoặc hotline 0944 477 357.",
+      reply: "Hệ thống AI chưa được cấu hình khóa API. Quý khách vui lòng liên hệ hotline 0944 477 357 hoặc email letuannhat105@gmail.com để được hỗ trợ.",
       products: [],
-      sources: []
+      sources: [],
+      activeFilters: {}
     };
   }
 
-  // 1. Dựng mảng contents từ lịch sử hội thoại
-  const contents = [];
+  const startTime = Date.now();
+  const deadline = startTime + (chatbotConfig.requestDeadlineMs || 45000);
 
-  for (const item of history) {
-    if (item.role === "user" || item.role === "model") {
-      contents.push({
-        role: item.role,
-        parts: [{ text: item.content || "" }]
-      });
+  // 1. Phân tích ý định người dùng bằng AI NLU (Không dùng Regex)
+  const parsedIntent = await parseUserIntent({
+    message,
+    activeFilters,
+    lastSuggestedProducts
+  });
+
+  const { route, activeFilters: nextFilters, policyTopic, productRef } = parsedIntent;
+  console.log(`[Chatbot Router] [${requestId}] Route: "${route}" | Topic: ${policyTopic || 'none'} | Filters:`, JSON.stringify(nextFilters));
+
+  // ==========================================
+  // LUỒNG 1: Chào hỏi đơn giản (0ms LLM Call)
+  // ==========================================
+  if (route === "GREETING") {
+    return {
+      reply: "Chào bạn! Em là chuyên viên tư vấn AI của Laptop Store 🤖\nBạn đang quan tâm đến laptop theo tầm giá nào (ví dụ: dưới 15 triệu, 15-20 triệu) hay theo nhu cầu sử dụng (học tập - văn phòng, đồ họa, gaming...) để em tìm giúp bạn mẫu máy phù hợp nhất nhé?",
+      products: [],
+      sources: [],
+      activeFilters: {}
+    };
+  }
+
+  // ==========================================
+  // LUỒNG 2: Hỏi chính sách đơn giản (0ms LLM Call)
+  // ==========================================
+  if (route === "POLICY_STATIC" && policyTopic) {
+    const policy = getCachedPolicy(policyTopic);
+    if (policy) {
+      return {
+        reply: `Dạ về **${policy.title.toLowerCase()}**, Laptop Store xin thông tin đến bạn như sau:\n\n${policy.content}\n\nNếu bạn cần hỗ trợ chi tiết hơn, bạn có thể gọi hotline **0944 477 357** (8h30 - 21h30 hàng ngày) để được hỗ trợ nhanh nhất nhé!`,
+        products: [],
+        sources: [`policy:${policy.topic}`],
+        activeFilters: nextFilters
+      };
     }
   }
 
-  // Thêm câu hỏi hiện tại của user
-  contents.push({
-    role: "user",
-    parts: [{ text: message }]
-  });
+  // =========================================================================
+  // LUỒNG 3: PRE-SEARCH RAG (TÌM MÁY / HỎI TIẾP VỀ MÁY VỪA XEM)
+  // Query DB trước -> Đóng gói context -> Gọi Gemini 1 LẦN DUY NHẤT (2.5s)
+  // =========================================================================
+  if (route === "PRODUCT_SEARCH" || route === "PRODUCT_REFERENCE") {
+    try {
+      let targetProducts = [];
 
-  const accumulatedProducts = [];
-  const accumulatedSources = [];
-  let rounds = 0;
-  let finalReply = "";
-
-  try {
-    while (rounds < chatbotConfig.maxToolRounds) {
-      rounds++;
-
-      const { response, modelUsed } = await generateContentWithFailover({ contents });
-
-      const functionCalls = response.functionCalls;
-
-      // Nếu model không gọi hàm nào -> đã có câu trả lời văn bản cuối cùng
-      if (!functionCalls || functionCalls.length === 0) {
-        finalReply =
-          response.text ||
-          "Dạ em đã ghi nhận thông tin, em có thể giúp gì thêm cho bạn không ạ?";
-        break;
-      }
-
-      // Có function calls -> thực thi các tool
-      const candidateContent = response.candidates?.[0]?.content;
-      if (candidateContent) {
-        contents.push(candidateContent);
-      }
-
-      const toolResults = [];
-
-      for (const fc of functionCalls) {
-        try {
-          const result = await executeTool(fc.name, fc.args || {});
-
-          if (fc.name === "searchLaptops" && Array.isArray(result)) {
-            for (const p of result) {
-              if (!accumulatedProducts.some((item) => item.id === p.id)) {
-                accumulatedProducts.push(p);
-                accumulatedSources.push(`product:${p.id}`);
-              }
-            }
-          } else if (fc.name === "getLaptopDetail" && result) {
-            if (!accumulatedProducts.some((item) => item.id === result.id)) {
-              accumulatedProducts.push(result);
-              accumulatedSources.push(`product:${result.id}`);
-            }
-          } else if (fc.name === "getStorePolicy" && result) {
-            accumulatedSources.push(`policy:${result.topic}`);
-          }
-
-          toolResults.push({
-            name: fc.name,
-            response: { result }
+      if (route === "PRODUCT_REFERENCE" && productRef) {
+        if (productRef.type === "SINGLE" && productRef.product) {
+          // Lấy lại dữ liệu mới nhất từ DB theo slug
+          const freshDoc = await getLaptopDetail({
+            slug: productRef.product.slug,
+            title: productRef.product.title
           });
-        } catch (toolError) {
-          console.error(`[Tool Error] ${fc.name}:`, toolError.message);
-          toolResults.push({
-            name: fc.name,
-            response: { error: toolError.message }
+          targetProducts = freshDoc ? [freshDoc] : [productRef.product];
+        } else if (productRef.type === "COMPARE" && Array.isArray(productRef.products)) {
+          targetProducts = productRef.products.slice(0, 3);
+        }
+      } else {
+        // Query DB trước thông qua Cache & Single-flight
+        const cacheKey = buildSearchCacheKey(nextFilters);
+        targetProducts = await getCachedSearchResults(cacheKey, async () => {
+          return await searchLaptops({
+            ...nextFilters,
+            limit: 3
+          });
+        });
+      }
+
+      // Tra cứu chính sách nếu câu hỏi có kèm (VD: "Asus dưới 20tr bảo hành thế nào?")
+      const policy = policyTopic ? getCachedPolicy(policyTopic) : null;
+
+      // Xây dựng ngữ cảnh RAG
+      const ragContext = buildRagPromptContext({
+        products: targetProducts,
+        policy,
+        activeFilters: nextFilters
+      });
+
+      // Tạo contents gửi cho Gemini (chỉ lấy 4 lượt hội thoại gần nhất để tối ưu tốc độ)
+      const contents = [];
+      const recentHistory = (history || []).slice(-4);
+      for (const item of recentHistory) {
+        if (item.role === "user" || item.role === "model") {
+          contents.push({
+            role: item.role,
+            parts: [{ text: item.content || "" }]
           });
         }
       }
 
-      // Gửi kết quả của tool trở lại cho Gemini diễn giải
       contents.push({
         role: "user",
-        parts: toolResults.map((tr) => ({
-          functionResponse: {
-            name: tr.name,
-            response: tr.response
+        parts: [
+          {
+            text: `Khách hỏi: "${message}"\n\n${ragContext}\n\nHãy tư vấn chi tiết, thân thiện cho khách. Giới thiệu đầy đủ các máy theo đúng thứ tự từ giá rẻ nhất đến cao hơn.`
           }
-        }))
+        ]
       });
+
+      const { response } = await generateContentWithFailover({
+        contents,
+        config: {
+          systemInstruction: RAG_SYSTEM_INSTRUCTION
+        },
+        deadline
+      });
+
+      const replyText =
+        response.text ||
+        "Dạ em đã kiểm tra và tìm thấy các mẫu laptop phù hợp với nhu cầu của bạn ở danh sách bên dưới nhé!";
+
+      return {
+        reply: replyText,
+        products: targetProducts.slice(0, 5),
+        sources: [
+          ...targetProducts.map((p) => `product:${p.id}`),
+          ...(policy ? [`policy:${policy.topic}`] : [])
+        ],
+        activeFilters: nextFilters
+      };
+    } catch (preSearchError) {
+      console.warn(`[Pre-search Flow Warning]: ${preSearchError.message}. Kiểm tra khả năng trả card dự phòng...`);
+      if (parsedIntent.filterPatch && (parsedIntent.filterPatch.maxPrice || parsedIntent.filterPatch.brand)) {
+        try {
+          const fallbackDocs = await searchLaptops({ ...nextFilters, limit: 3 });
+          if (fallbackDocs && fallbackDocs.length > 0) {
+            return {
+              reply: "Dạ em đã kiểm tra kho hàng và tìm thấy một số mẫu laptop phù hợp với tiêu chí của bạn. Bạn tham khảo danh sách chi tiết các máy bên dưới nhé:",
+              products: fallbackDocs,
+              sources: fallbackDocs.map((p) => `product:${p.id}`),
+              activeFilters: nextFilters
+            };
+          }
+        } catch {}
+      }
+      throw preSearchError;
+    }
+  }
+
+  // =========================================================================
+  // LUỒNG 4: TƯ VẤN CÂU HỎI MỞ / KIẾN THỨC CÔNG NGHỆ CHUNG (1 LẦN GỌI)
+  // Áp dụng cho: So sánh chip, card màn hình, câu hỏi tư vấn chung...
+  // =========================================================================
+  try {
+    const contents = [];
+    const recentHistory = (history || []).slice(-4);
+    for (const item of recentHistory) {
+      if (item.role === "user" || item.role === "model") {
+        contents.push({
+          role: item.role,
+          parts: [{ text: item.content || "" }]
+        });
+      }
     }
 
-    if (!finalReply) {
-      finalReply = "Dạ bên em đã kiểm tra thông tin và hiển thị danh sách sản phẩm phù hợp ở bên dưới nhé!";
-    }
+    contents.push({
+      role: "user",
+      parts: [{ text: message }]
+    });
+
+    const { response } = await generateContentWithFailover({
+      contents,
+      config: {
+        systemInstruction: RAG_SYSTEM_INSTRUCTION
+      },
+      deadline
+    });
 
     return {
-      reply: finalReply,
-      products: accumulatedProducts.slice(0, 5), // Tối đa 5 card sản phẩm
-      sources: accumulatedSources
+      reply: response.text || "Dạ em có thể giúp gì thêm cho bạn về các sản phẩm laptop tại cửa hàng không ạ?",
+      products: [],
+      sources: [],
+      activeFilters
     };
   } catch (error) {
     console.error(`[ChatbotService Error] [${requestId}]:`, error);
@@ -251,13 +346,14 @@ export async function generateChatReply({
       error.message?.includes("UNAVAILABLE");
 
     const replyMsg = isOverloaded
-      ? "Dạ hiện tại cụm máy chủ Google Gemini đang trong khung giờ cao điểm (quá tải 503). Bạn vui lòng thử gửi lại câu hỏi sau 10 - 15 giây giúp em nhé!"
-      : `Dạ hiện tại hệ thống AI đang gặp chút gián đoạn (${error.message || "Lỗi xử lý"}). Bạn vui lòng gửi lại câu hỏi hoặc liên hệ hotline 0944 477 357 (email: letuannhat105@gmail.com) nhé!`;
+      ? "Dạ hiện tại máy chủ AI Google đang trong khung giờ cao điểm (quá tải 503). Bạn vui lòng gửi lại câu hỏi sau vài giây giúp em nhé!"
+      : `Dạ hiện tại kết nối đến hệ thống AI đang bị gián đoạn. Bạn vui lòng thử lại hoặc liên hệ hotline 0944 477 357 (email: letuannhat105@gmail.com) để được hỗ trợ ngay nhé!`;
 
     return {
       reply: replyMsg,
       products: [],
-      sources: []
+      sources: [],
+      activeFilters
     };
   }
 }
